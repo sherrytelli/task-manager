@@ -3,8 +3,6 @@
 
 #include <qt6/QtWidgets/QLabel>
 #include <qt6/QtWidgets/QMainWindow>
-#include <qt6/QtWidgets/QVBoxLayout>
-#include <qt6/QtWidgets/QWidget>
 
 class MainWindow : public QMainWindow {
     Q_OBJECT;
@@ -14,7 +12,7 @@ class MainWindow : public QMainWindow {
     ~MainWindow();
 
     private:
-    void setupUI();
+    void createLabel();
 };
 
 #endif // MAINWINDOW_H
