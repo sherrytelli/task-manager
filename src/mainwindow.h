@@ -7,12 +7,6 @@
 #include <qt6/QtWidgets/QWidget>
 
 class MainWindow : public QMainWindow {
-    private:
-    QWidget *CentralWidget;
-    QVBoxLayout *Layout;
-    QLabel *HelloLabel;
-
-    public:
     Q_OBJECT;
 
     public:
