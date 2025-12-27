@@ -1,10 +1,12 @@
 #ifndef MAINWINDOW_H
+#define MAINWINDOW_H
+
 #include <qt6/QtWidgets/QLabel>
 #include <qt6/QtWidgets/QMainWindow>
 #include <qt6/QtWidgets/QVBoxLayout>
 #include <qt6/QtWidgets/QWidget>
 
-class MainWindow : QMainWindow {
+class MainWindow : public QMainWindow {
     private:
     QWidget *CentralWidget;
     QVBoxLayout *Layout;
