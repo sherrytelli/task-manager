@@ -5,6 +5,7 @@
 #include <qt6/QtWidgets/QtWidgets>
 #include <qt6/QtWidgets/QStackedWidget>
 #include <qt6/QtWidgets/QVBoxLayout>
+#include <qt6/QtGui/QAction>
 
 class MainWindow : public QMainWindow {
     Q_OBJECT;
