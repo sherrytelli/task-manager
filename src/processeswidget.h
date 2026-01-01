@@ -3,7 +3,15 @@
 
 #include <qt6/QtWidgets/QtWidgets>
 #include <qt6/QtWidgets/QTableWidget>
-#include <qt6/QtCore/QProcess>
+#include <qt6/QtCore/QDir>
+#include <qt6/QtCore/QStringList>
+#include <qt6/QtWidgets/QVBoxLayout>
+#include <qt6/QtCore/QTimer>
+#include <qt6/QtCore/QFileInfoList>
+#include <qt6/QtCore/QString>
+#include <qt6/QtCore/QFile>
+#include <qt6/QtCore/QTextStream>
+#include <qt6/QtWidgets/QTableWidgetItem>
 
 class ProcessWidget: public QWidget {
     Q_OBJECT;
@@ -15,8 +23,8 @@ class ProcessWidget: public QWidget {
     //widget to store the process table
     QTableWidget *tableWidget;
 
-    //process variable to store the subprocess
-    QProcess *processReader;
+    //object to control "/proc" directory
+    QDir *procDir;
 
     //function to update the process list
     void updateProcessesList();
