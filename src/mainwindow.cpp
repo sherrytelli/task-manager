@@ -24,15 +24,18 @@ void MainWindow::init() {
 
     //populating placeholders
     metricsScreen = new QLabel("Metrics Screen", this);
-    processesScreen = new QLabel("Processes Screen", this);
+    //processesScreen = new QLabel("Processes Screen", this);
+    
+    //creating the processes screen widget
+    processesScreen = new ProcessWidget(this);
 
     //centering placeholders
     metricsScreen->setAlignment(Qt::AlignCenter);
-    processesScreen->setAlignment(Qt::AlignCenter);
+    //processesScreen->setAlignment(Qt::AlignCenter);
 
     //changing placeholder font size and background color
     metricsScreen->setStyleSheet("font-size: 24px; background-color: black");
-    processesScreen->setStyleSheet("font-size: 24px; background-color: black");
+    //processesScreen->setStyleSheet("font-size: 24px; background-color: black");
 
     //creating stacked widget to stack placeholders
     stackedWidget = new QStackedWidget(this);
