@@ -6,6 +6,7 @@
 #include <qt6/QtWidgets/QStackedWidget>
 #include <qt6/QtWidgets/QVBoxLayout>
 #include <qt6/QtGui/QAction>
+#include "processeswidget.h"
 
 class MainWindow : public QMainWindow {
     Q_OBJECT;
@@ -15,8 +16,8 @@ class MainWindow : public QMainWindow {
     ~MainWindow();
 
     private:
-    //placeholder for processes screen
-    QLabel *processesScreen;
+    //variable for processes screen widget
+    ProcessWidget *processesScreen;
     //placeholder for metrics screen
     QLabel *metricsScreen;
 
