@@ -33,6 +33,9 @@ class ProcessWidget: public QWidget {
     //search bar widget
     QLineEdit *searchLineEdit;
 
+    //variable to store the last search text for reapplying filter after refresh
+    QString lastSearchText;
+
     //function to filter processes by command name
     void filterProcesses(const QString &filterText);
 };

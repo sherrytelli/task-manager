@@ -36,6 +36,9 @@ ProcessWidget::ProcessWidget(QWidget *parent): QWidget(parent) {
 
     setLayout(tableLayout);
 
+    //initialize last search text
+    lastSearchText = "";
+
     //creating the process Directory object;
     procDir = new QDir("/proc/");
 
@@ -112,10 +115,16 @@ void ProcessWidget::updateProcessesList() {
         tableWidget->setItem(row, 1, new QTableWidgetItem(processUserID));
         tableWidget->setItem(row, 2, new QTableWidgetItem(processName));
     }
+
+    //reapply the filter after repopulating the table
+    filterProcesses(lastSearchText);
 }
 
 //this function filters the table based on the search text
 void ProcessWidget::filterProcesses(const QString &filterText) {
+    // Store the filter text for reapplying after refresh
+    lastSearchText = filterText;
+
     // Get current text to check (trim whitespace)
     QString searchText = filterText.trimmed();
 
