@@ -46,7 +46,9 @@ ProcessWidget::ProcessWidget(QWidget *parent): QWidget(parent) {
     updateProcessesList();
 
     //creating timer to automatically call updateProcessesList after the specified interval
-    QTimer::singleShot(2000, this, &ProcessWidget::updateProcessesList);
+    QTimer *refreshTimer = new QTimer(this);
+    connect(refreshTimer, &QTimer::timeout, this, &ProcessWidget::updateProcessesList);
+    refreshTimer->start(2000); // Start updating every 2 seconds
 }
 
 //this function updates the table Widget
