@@ -12,6 +12,7 @@
 #include <qt6/QtCore/QFile>
 #include <qt6/QtCore/QTextStream>
 #include <qt6/QtWidgets/QTableWidgetItem>
+#include <qt6/QtWidgets/QLineEdit>
 
 class ProcessWidget: public QWidget {
     Q_OBJECT;
@@ -28,6 +29,12 @@ class ProcessWidget: public QWidget {
 
     //function to update the process list
     void updateProcessesList();
+
+    //search bar widget
+    QLineEdit *searchLineEdit;
+
+    //function to filter processes by command name
+    void filterProcesses(const QString &filterText);
 };
 
 #endif // !PROCESSESWIDGET_H

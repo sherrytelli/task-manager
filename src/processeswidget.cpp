@@ -23,6 +23,17 @@ ProcessWidget::ProcessWidget(QWidget *parent): QWidget(parent) {
     //setting the layout for the table widget
     QVBoxLayout *tableLayout = new QVBoxLayout(this);
     tableLayout->addWidget(tableWidget);
+
+    // Create search bar widget
+    searchLineEdit = new QLineEdit(this);
+
+    // Add search bar to layout
+    tableLayout->addWidget(searchLineEdit);
+
+    // Connect textChanged signal to filter function
+    connect(searchLineEdit, &QLineEdit::textChanged,
+            this, &ProcessWidget::filterProcesses);
+
     setLayout(tableLayout);
 
     //creating the process Directory object;
@@ -98,5 +109,27 @@ void ProcessWidget::updateProcessesList() {
         tableWidget->setItem(row, 0, new QTableWidgetItem(processpid));
         tableWidget->setItem(row, 1, new QTableWidgetItem(processUserID));
         tableWidget->setItem(row, 2, new QTableWidgetItem(processName));
+    }
+}
+
+//this function filters the table based on the search text
+void ProcessWidget::filterProcesses(const QString &filterText) {
+    // Get current text to check (trim whitespace)
+    QString searchText = filterText.trimmed();
+
+    // Iterate through all rows and hide/show based on match
+    for (int row = 0; row < tableWidget->rowCount(); row++) {
+        // Get the command from column 2 (0=PID, 1=USER, 2=COMMAND)
+        QTableWidgetItem *item = tableWidget->item(row, 2);
+
+        // Check if item exists and if command matches search text
+        if (item) {
+            QString command = item->text();
+            bool match = searchText.isEmpty() ||
+                         command.contains(searchText, Qt::CaseInsensitive);
+
+            // Set row visibility
+            tableWidget->setRowHidden(row, !match);
+        }
     }
 }
