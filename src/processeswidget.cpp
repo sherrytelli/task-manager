@@ -60,6 +60,7 @@ void ProcessWidget::updateProcessesList() {
     tableWidget->setRowCount(0);
 
     //setting all the processes from procDir
+    procDir->refresh();
     QFileInfoList processList = procDir->entryInfoList();
 
     //iterating over the pid folders
