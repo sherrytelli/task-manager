@@ -1,42 +1,27 @@
 #ifndef PROCESSESWIDGET_H
 #define PROCESSESWIDGET_H
 
-#include <qt6/QtWidgets/QtWidgets>
-#include <qt6/QtWidgets/QTableWidget>
-#include <qt6/QtCore/QDir>
-#include <qt6/QtCore/QStringList>
-#include <qt6/QtWidgets/QVBoxLayout>
-#include <qt6/QtCore/QTimer>
-#include <qt6/QtCore/QFileInfoList>
-#include <qt6/QtCore/QString>
-#include <qt6/QtCore/QFile>
-#include <qt6/QtCore/QTextStream>
-#include <qt6/QtWidgets/QTableWidgetItem>
-#include <qt6/QtWidgets/QLineEdit>
+#include <QAbstractItemView>
+#include <QDir>
+#include <QFileInfoList>
+#include <QHeaderView>
+#include <QLineEdit>
+#include <QTableWidgetItem>
+#include <QTimer>
+#include <QVBoxLayout>
 
-class ProcessWidget: public QWidget {
-    Q_OBJECT;
+class ProcessWidget : public QWidget {
+    Q_OBJECT
 
     public:
-    ProcessWidget(QWidget *parent = nullptr);
+    explicit ProcessWidget(QWidget *parent = nullptr);
 
     private:
-    //widget to store the process table
     QTableWidget *tableWidget;
-
-    //object to control "/proc" directory
     QDir *procDir;
-
-    //function to update the process list
     void updateProcessesList();
-
-    //search bar widget
     QLineEdit *searchLineEdit;
-
-    //variable to store the last search text for reapplying filter after refresh
     QString lastSearchText;
-
-    //function to filter processes by command name
     void filterProcesses(const QString &filterText);
 };
 

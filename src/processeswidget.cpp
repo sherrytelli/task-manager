@@ -1,119 +1,95 @@
 #include "processeswidget.h"
 
-ProcessWidget::ProcessWidget(QWidget *parent): QWidget(parent) {
-    //creating table
+ProcessWidget::ProcessWidget(QWidget *parent) : QWidget(parent) {
     tableWidget = new QTableWidget(this);
-
-    //setting the no of columns in the table
     tableWidget->setColumnCount(3);
-
-    //setting table headers
     tableWidget->setHorizontalHeaderLabels({"PID", "USER", "COMMAND"});
-
-    //setting table edit triggers
     tableWidget->setEditTriggers(QAbstractItemView::NoEditTriggers);
-
-    //setting table row selection behaviour
     tableWidget->setSelectionBehavior(QAbstractItemView::SelectRows);
-
-    //setting table header visibility
     tableWidget->horizontalHeader()->setStretchLastSection(false);
     tableWidget->verticalHeader()->setVisible(false);
 
-    //setting the layout for the table widget
     QVBoxLayout *tableLayout = new QVBoxLayout(this);
     tableLayout->addWidget(tableWidget);
 
-    // Create search bar widget
     searchLineEdit = new QLineEdit(this);
-
-    // Add search bar to layout
     tableLayout->addWidget(searchLineEdit);
 
-    // Connect textChanged signal to filter function
     connect(searchLineEdit, &QLineEdit::textChanged,
             this, &ProcessWidget::filterProcesses);
 
     setLayout(tableLayout);
-
-    //initialize last search text
     lastSearchText = "";
 
-    //creating the process Directory object;
     procDir = new QDir("/proc/");
-
-    //setting filter for procDir
     procDir->setFilter(QDir::Dirs | QDir::NoDotAndDotDot);
 
-    //calling the update processProcessList funtion
     updateProcessesList();
 
-    //creating timer to automatically call updateProcessesList after the specified interval
     QTimer *refreshTimer = new QTimer(this);
     connect(refreshTimer, &QTimer::timeout, this, &ProcessWidget::updateProcessesList);
-    refreshTimer->start(2000); // Start updating every 2 seconds
+    refreshTimer->start(2000);
 }
 
-//this function updates the table Widget
 void ProcessWidget::updateProcessesList() {
-    //resetting all the rows in the table
     tableWidget->setRowCount(0);
 
-    //setting all the processes from procDir
     procDir->refresh();
-    QFileInfoList processList = procDir->entryInfoList();
+    const QFileInfoList processList = procDir->entryInfoList();
 
-    //iterating over the pid folders
-    for(auto &pidDir: processList) {
-        //constructing the path to the processes status file;
-        QString pidStatusFilePath = pidDir.absoluteFilePath() + "/status";
+    for (auto &pidDir : processList) {
+        // Skip non-numeric PIDs (e.g., kernel threads directories that aren't numeric)
+        bool ok = false;
+        pidDir.fileName().toInt(&ok);
+        if (!ok)
+            continue;
 
-        //creating the file object to read the status file
-        QFile *statusFileObj = new QFile(pidStatusFilePath);
+        // constructing the path to the processes status file
+        const QString pidStatusFilePath = pidDir.absoluteFilePath() + "/status";
 
-        //variable to store the process pid
-        QString processpid = pidDir.fileName();
+        // Stack-allocated QFile (RAII - no manual delete needed)
+        QFile statusFileObj(pidStatusFilePath);
 
-        //skipping the file if it fails to open
-        if(!statusFileObj->open(QIODevice::ReadOnly | QIODevice::Text)) {
+        // variable to store the process pid
+        const QString processPid = pidDir.fileName();
+
+        // Skip the file if it fails to open (permission denied, deleted process, etc.)
+        if (!statusFileObj.open(QIODevice::ReadOnly | QIODevice::Text)) {
             continue;
         }
 
-        //variable to store the process name;
+        // Parse the status file line by line, searching for Name: and Uid: labels
         QString processName;
+        QString processUid;
 
-        //variable to store the user id that started the process
-        QString processUserID;
-
-        //creating a text stream to read the status file
-        QTextStream statusFileReadStream(statusFileObj);
-
-        //variable to store the lines of the read stream;
+        QTextStream statusFileReadStream(&statusFileObj);
         QString line;
+        while (statusFileReadStream.readLineInto(&line)) {
+            if (line.startsWith("Name:")) {
+                processName = line.mid(5).trimmed();
+            } else if (line.startsWith("Uid:")) {
+                // Uid format: "Uid:\t<real>\teffective\tsaved\tfs" — use real UID (first value)
+                QStringList uidParts = line.split('\t', Qt::SkipEmptyParts);
+                if (uidParts.size() >= 2) {
+                    processUid = uidParts[1].trimmed();
+                }
+                break;  // Uid is always near the top, no need to read further
+            }
+        }
 
-        //storing the name of the process
-        line = statusFileReadStream.readLine();
-        processName = line.slice(6);
+        statusFileObj.close();
 
-        //storing the name of user that started the command
-        line = statusFileReadStream.readLine();
-        line = statusFileReadStream.readLine();
-        line = statusFileReadStream.readLine();
-        line = statusFileReadStream.readLine();
-        line = statusFileReadStream.readLine();
-        line = statusFileReadStream.readLine();
-        line = statusFileReadStream.readLine();
-        line = statusFileReadStream.readLine();
-        processUserID = line.slice(5, 4);
+        // Input validation: skip if we couldn't parse Name or Uid
+        // This handles zombie processes, permission-denied, or corrupted status files
+        if (processName.isEmpty() || processUid.isEmpty()) {
+            continue;
+        }
 
-        //closing the file after reading
-        statusFileObj->close();
-
-        //adding the data to the table
-        int row = tableWidget->rowCount();
+        // adding the data to the table
+        const int row = tableWidget->rowCount();
         tableWidget->insertRow(row);
-        tableWidget->setItem(row, 0, new QTableWidgetItem(processpid));
-        tableWidget->setItem(row, 1, new QTableWidgetItem(processUserID));
+        tableWidget->setItem(row, 0, new QTableWidgetItem(processPid));
+        tableWidget->setItem(row, 1, new QTableWidgetItem(processUid));
         tableWidget->setItem(row, 2, new QTableWidgetItem(processName));
     }
 
@@ -121,26 +97,16 @@ void ProcessWidget::updateProcessesList() {
     filterProcesses(lastSearchText);
 }
 
-//this function filters the table based on the search text
 void ProcessWidget::filterProcesses(const QString &filterText) {
-    // Store the filter text for reapplying after refresh
     lastSearchText = filterText;
+    const QString searchText = filterText.trimmed();
 
-    // Get current text to check (trim whitespace)
-    QString searchText = filterText.trimmed();
-
-    // Iterate through all rows and hide/show based on match
     for (int row = 0; row < tableWidget->rowCount(); row++) {
-        // Get the command from column 2 (0=PID, 1=USER, 2=COMMAND)
         QTableWidgetItem *item = tableWidget->item(row, 2);
-
-        // Check if item exists and if command matches search text
         if (item) {
-            QString command = item->text();
-            bool match = searchText.isEmpty() ||
-                         command.contains(searchText, Qt::CaseInsensitive);
-
-            // Set row visibility
+            const QString command = item->text();
+            const bool match = searchText.isEmpty() ||
+                               command.contains(searchText, Qt::CaseInsensitive);
             tableWidget->setRowHidden(row, !match);
         }
     }

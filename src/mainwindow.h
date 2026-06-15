@@ -1,30 +1,27 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
-#include <qt6/QtWidgets/QMainWindow>
-#include <qt6/QtWidgets/QtWidgets>
-#include <qt6/QtWidgets/QStackedWidget>
-#include <qt6/QtWidgets/QVBoxLayout>
-#include <qt6/QtGui/QAction>
+#include <QAction>
+#include <QLabel>
+#include <QMainWindow>
+#include <QStackedWidget>
+#include <QToolBar>
+#include <QVBoxLayout>
 #include "processeswidget.h"
 
 class MainWindow : public QMainWindow {
-    Q_OBJECT;
+    Q_OBJECT
 
     public:
-    MainWindow(QWidget *parent = nullptr);
-    ~MainWindow();
+    explicit MainWindow(QWidget *parent = nullptr);
+    ~MainWindow() override;
 
     private:
-    //variable for processes screen widget
     ProcessWidget *processesScreen;
-    //placeholder for metrics screen
     QLabel *metricsScreen;
-
     QStackedWidget *stackedWidget;
     QAction *metricsAction;
     QAction *processesAction;
-
     void showMetricsScreen();
     void showProcessesScreen();
     void init();
