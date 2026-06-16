@@ -228,10 +228,7 @@ void ProcessWidget::updateProcessesList() {
 
     filterProcesses(lastSearchText);
 
-    quint64 usedMemory = 0;
-    for (const auto &info : processCache) {
-        usedMemory += static_cast<quint64>(info.unsharedRssBytes);
-    }
+    quint64 usedMemory = readUsedMemory();
     emit refreshComplete(processCache.size(), totalMemoryBytes, usedMemory);
 }
 
@@ -408,6 +405,58 @@ quint64 ProcessWidget::readTotalMemory() {
     }
     meminfoFile.close();
     return totalMemKb * 1024;
+}
+
+quint64 ProcessWidget::readUsedMemory() {
+    QFile meminfoFile("/proc/meminfo");
+    if (!meminfoFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return 0;
+    }
+
+    quint64 totalMemKb = 0;
+    quint64 availableMemKb = 0;
+    QTextStream meminfoStream(&meminfoFile);
+    QString line;
+    while (meminfoStream.readLineInto(&line)) {
+        if (line.startsWith("MemTotal:")) {
+            QString valueStr = line.split(':').last().trimmed();
+            bool ok = false;
+            totalMemKb = valueStr.split(' ', Qt::SkipEmptyParts).first().toULongLong(&ok);
+        } else if (line.startsWith("MemAvailable:")) {
+            QString valueStr = line.split(':').last().trimmed();
+            bool ok = false;
+            availableMemKb = valueStr.split(' ', Qt::SkipEmptyParts).first().toULongLong(&ok);
+        }
+    }
+    meminfoFile.close();
+
+    if (availableMemKb > 0 && totalMemKb > availableMemKb) {
+        return (totalMemKb - availableMemKb) * 1024;
+    }
+
+    quint64 freeMemKb = 0;
+    quint64 buffersMemKb = 0;
+    quint64 cachedMemKb = 0;
+    meminfoFile.open(QIODevice::ReadOnly | QIODevice::Text);
+    QTextStream meminfoStream2(&meminfoFile);
+    while (meminfoStream2.readLineInto(&line)) {
+        if (line.startsWith("MemFree:")) {
+            QString valueStr = line.split(':').last().trimmed();
+            bool ok = false;
+            freeMemKb = valueStr.split(' ', Qt::SkipEmptyParts).first().toULongLong(&ok);
+        } else if (line.startsWith("Buffers:")) {
+            QString valueStr = line.split(':').last().trimmed();
+            bool ok = false;
+            buffersMemKb = valueStr.split(' ', Qt::SkipEmptyParts).first().toULongLong(&ok);
+        } else if (line.startsWith("Cached:")) {
+            QString valueStr = line.split(':').last().trimmed();
+            bool ok = false;
+            cachedMemKb = valueStr.split(' ', Qt::SkipEmptyParts).first().toULongLong(&ok);
+        }
+    }
+    meminfoFile.close();
+
+    return (totalMemKb - freeMemKb - buffersMemKb - cachedMemKb) * 1024;
 }
 
 QString ProcessWidget::formatUptime(qint64 ticks, long ticksPerSecond) const {

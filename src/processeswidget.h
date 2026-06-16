@@ -84,6 +84,7 @@ class ProcessWidget : public QWidget {
 
     ProcessInfo readProcessInfo(int pid);
     quint64 readTotalMemory();
+    quint64 readUsedMemory();
     qint64 readTotalCpuTime();
      QString formatUptime(qint64 ticks, long ticksPerSecond) const;
     QString getProcessStateSymbol(char stateChar) const;
