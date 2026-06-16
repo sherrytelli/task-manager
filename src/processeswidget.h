@@ -55,7 +55,7 @@ class ProcessWidget : public QWidget {
         COL_USER,
         COL_STATE,
         COL_CPU_PERCENT,
-        COL_MEMORY_PERCENT,
+        COL_MEMORY,
         COL_THREADS,
         COL_START_TIME,
         COL_COMMAND_LINE,
@@ -67,7 +67,7 @@ class ProcessWidget : public QWidget {
         70,   // USER
         80,   // STATE
         70,   // CPU%
-        90,   // MEMORY%
+        90,   // MEMORY
         70,   // THREADS
         130,  // START TIME
         0     // COMMAND LINE (stretch)

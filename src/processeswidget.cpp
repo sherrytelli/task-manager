@@ -12,6 +12,17 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+static QString formatMemorySize(qint64 bytes) {
+    static const char *units[] = {"KB", "MB", "GB", "TB"};
+    int unitIndex = 0;
+    double size = static_cast<double>(bytes) / 1024.0;
+    while (size >= 1024.0 && unitIndex < 3) {
+        size /= 1024.0;
+        ++unitIndex;
+    }
+    return QString("%1 %2").arg(QString::number(size, 'f', 1), units[unitIndex]);
+}
+
 ProcessWidget::ProcessWidget(QWidget *parent)
     : QWidget(parent),
       procDir(new QDir("/proc/")),
@@ -36,7 +47,7 @@ void ProcessWidget::setupTable() {
     tableWidget = new QTableWidget(this);
     tableWidget->setColumnCount(COLUMN_COUNT);
     tableWidget->setHorizontalHeaderLabels(
-        {"PID", "USER", "STATE", "CPU%", "MEMORY%", "THREADS", "START TIME", "COMMAND LINE"});
+        {"PID", "USER", "STATE", "CPU%", "MEMORY", "THREADS", "START TIME", "COMMAND LINE"});
     tableWidget->setEditTriggers(QAbstractItemView::NoEditTriggers);
     tableWidget->setSelectionBehavior(QAbstractItemView::SelectRows);
     tableWidget->setContextMenuPolicy(Qt::CustomContextMenu);
@@ -198,10 +209,9 @@ void ProcessWidget::updateProcessesList() {
         cpuItem->setTextAlignment(Qt::AlignCenter);
         tableWidget->setItem(row, COL_CPU_PERCENT, cpuItem);
 
-        QTableWidgetItem *memItem = new QTableWidgetItem(QString("%1%").arg(QString::number(info.memoryPercent, 'f', 1)));
-        memItem->setData(Qt::DisplayRole, info.memoryPercent);
+        QTableWidgetItem *memItem = new QTableWidgetItem(formatMemorySize(info.rssBytes));
         memItem->setTextAlignment(Qt::AlignCenter);
-        tableWidget->setItem(row, COL_MEMORY_PERCENT, memItem);
+        tableWidget->setItem(row, COL_MEMORY, memItem);
 
         QTableWidgetItem *threadsItem = new QTableWidgetItem(QString::number(info.threadCount));
         threadsItem->setData(Qt::DisplayRole, info.threadCount);
