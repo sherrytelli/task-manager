@@ -210,7 +210,6 @@ void ProcessWidget::updateProcessesList() {
         tableWidget->setItem(row, COL_CPU_PERCENT, cpuItem);
 
         QTableWidgetItem *memItem = new QTableWidgetItem(formatMemorySize(info.rssBytes + info.unsharedRssBytes));
-        memItem->setData(Qt::DisplayRole, info.rssBytes + info.unsharedRssBytes);
         memItem->setTextAlignment(Qt::AlignCenter);
         tableWidget->setItem(row, COL_MEMORY, memItem);
 
