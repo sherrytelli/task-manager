@@ -169,9 +169,9 @@ void ProcessWidget::updateProcessesList() {
             newCache[i].cpuPercent = cpuPercent;
         }
 
-        // Calculate memory percentage
+        // Calculate memory percentage using unshared RSS (KDE ksysguardd approach)
         if (totalMemoryBytes > 0) {
-            newCache[i].memoryPercent = (static_cast<double>(newCache[i].rssBytes) / totalMemoryBytes) * 100.0;
+            newCache[i].memoryPercent = (static_cast<double>(newCache[i].unsharedRssBytes) / totalMemoryBytes) * 100.0;
         } else {
             newCache[i].memoryPercent = 0.0;
         }
@@ -209,7 +209,7 @@ void ProcessWidget::updateProcessesList() {
         cpuItem->setTextAlignment(Qt::AlignCenter);
         tableWidget->setItem(row, COL_CPU_PERCENT, cpuItem);
 
-        QTableWidgetItem *memItem = new QTableWidgetItem(formatMemorySize(info.rssBytes));
+        QTableWidgetItem *memItem = new QTableWidgetItem(formatMemorySize(info.unsharedRssBytes));
         memItem->setTextAlignment(Qt::AlignCenter);
         tableWidget->setItem(row, COL_MEMORY, memItem);
 
@@ -230,7 +230,7 @@ void ProcessWidget::updateProcessesList() {
 
     quint64 usedMemory = 0;
     for (const auto &info : processCache) {
-        usedMemory += info.rssBytes;
+        usedMemory += static_cast<quint64>(info.unsharedRssBytes);
     }
     emit refreshComplete(processCache.size(), totalMemoryBytes, usedMemory);
 }
@@ -284,6 +284,32 @@ ProcessInfo ProcessWidget::readProcessInfo(int pid) {
         }
     }
     statusFile.close();
+
+    // Read /proc/[pid]/statm for shared pages (KDE ksysguardd approach)
+    // statm format: size resident shared text lib data dt
+    // Fields are in pages. Shared = shared pages (shared libraries, mmapped files, page table entries)
+    QFile statmFile(QString("/proc/%1/statm").arg(pid));
+    if (statmFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        QTextStream statmStream(&statmFile);
+        QString statmLine = statmStream.readLine();
+        statmFile.close();
+
+        QStringList statmFields = statmLine.split(' ', Qt::SkipEmptyParts);
+        if (statmFields.size() >= 3) {
+            bool sharedOk = false;
+            qint64 sharedPages = statmFields[2].toLongLong(&sharedOk);
+            if (sharedOk) {
+                info.sharedPagesKb = sharedPages * (qint64)sysconf(_SC_PAGESIZE) / 1024;
+            }
+        }
+    }
+
+    // Calculate unshared RSS (VmURss) - KDE ksysguardd approach
+    // Unshared RSS = RSS - shared pages from statm
+    info.unsharedRssBytes = info.rssBytes - info.sharedPagesKb * 1024;
+    if (info.unsharedRssBytes < 0) {
+        info.unsharedRssBytes = 0;
+    }
 
     if (info.name.isEmpty()) return info;
 

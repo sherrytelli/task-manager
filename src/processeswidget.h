@@ -24,6 +24,8 @@ struct ProcessInfo {
     QString commandLine;
     qint64 parentPid = 0;
     qint64 rssBytes = 0;
+    qint64 sharedPagesKb = 0;
+    qint64 unsharedRssBytes = 0;
     qulonglong cumulativeCpuTicks = 0;
 };
 
