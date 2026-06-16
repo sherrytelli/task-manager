@@ -55,9 +55,7 @@ void ProcessDetailsDialog::setProcessInfo(const ProcessInfo &info) {
     QGroupBox *basicGroup = createInfoGroup("Basic Information", basicInfo);
     QGroupBox *resourceGroup = createInfoGroup("Resource Usage", resourceInfo);
 
-    QVBoxLayout *layout = static_cast<QVBoxLayout*>(this->layout()->itemAt(0)->widget()->layout());
-    // Find the scroll content widget
-    QScrollArea *scrollArea = qobject_cast<QScrollArea*>(this->layout()->widget());
+    QScrollArea *scrollArea = qobject_cast<QScrollArea*>(this->layout()->itemAt(0)->widget());
     if (scrollArea) {
         QWidget *scrollContent = scrollArea->widget();
         QVBoxLayout *scrollLayout = qobject_cast<QVBoxLayout*>(scrollContent->layout());
