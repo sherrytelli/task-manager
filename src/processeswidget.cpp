@@ -1,113 +1,406 @@
 #include "processeswidget.h"
+#include "processdetailsdialog.h"
 
-ProcessWidget::ProcessWidget(QWidget *parent) : QWidget(parent) {
+#include <QCoreApplication>
+#include <QDateTime>
+#include <QInputDialog>
+#include <QMessageBox>
+#include <QScreen>
+
+#include <csignal>
+#include <pwd.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+ProcessWidget::ProcessWidget(QWidget *parent)
+    : QWidget(parent),
+      procDir(new QDir("/proc/")),
+      refreshTimer(new QTimer(this)) {
+    setupTable();
+    setupContextMenu();
+
+    procDir->setFilter(QDir::Dirs | QDir::NoDotAndDotDot);
+
+    updateProcessesList();
+
+    connect(refreshTimer, &QTimer::timeout, this, &ProcessWidget::updateProcessesList);
+    refreshTimer->start(refreshIntervalMs);
+}
+
+void ProcessWidget::setRefreshInterval(int ms) {
+    refreshIntervalMs = ms;
+    refreshTimer->start(refreshIntervalMs);
+}
+
+void ProcessWidget::setupTable() {
     tableWidget = new QTableWidget(this);
-    tableWidget->setColumnCount(3);
-    tableWidget->setHorizontalHeaderLabels({"PID", "USER", "COMMAND"});
+    tableWidget->setColumnCount(COLUMN_COUNT);
+    tableWidget->setHorizontalHeaderLabels(
+        {"PID", "USER", "STATE", "CPU%", "MEMORY%", "THREADS", "START TIME", "COMMAND LINE"});
     tableWidget->setEditTriggers(QAbstractItemView::NoEditTriggers);
     tableWidget->setSelectionBehavior(QAbstractItemView::SelectRows);
-    tableWidget->horizontalHeader()->setStretchLastSection(false);
+    tableWidget->setContextMenuPolicy(Qt::CustomContextMenu);
+    tableWidget->setSortingEnabled(true);
     tableWidget->verticalHeader()->setVisible(false);
+
+    for (int i = 0; i < COLUMN_COUNT; ++i) {
+        if (kColumnWidths[i] > 0) {
+            tableWidget->horizontalHeader()->setSectionResizeMode(i, QHeaderView::Fixed);
+            tableWidget->horizontalHeader()->resizeSection(i, kColumnWidths[i]);
+        } else {
+            tableWidget->horizontalHeader()->setSectionResizeMode(i, QHeaderView::Stretch);
+        }
+    }
 
     QVBoxLayout *tableLayout = new QVBoxLayout(this);
     tableLayout->addWidget(tableWidget);
 
     searchLineEdit = new QLineEdit(this);
+    searchLineEdit->setPlaceholderText("Search processes...");
     tableLayout->addWidget(searchLineEdit);
 
-    connect(searchLineEdit, &QLineEdit::textChanged,
-            this, &ProcessWidget::filterProcesses);
+    connect(searchLineEdit, &QLineEdit::textChanged, this, &ProcessWidget::filterProcesses);
+    connect(tableWidget, &QTableWidget::itemDoubleClicked, this,
+            [this](QTableWidgetItem *item) {
+                if (item->row() < static_cast<int>(processCache.size())) {
+                    showProcessDetails(processCache[item->row()]);
+                }
+            });
+    connect(tableWidget, &QTableWidget::customContextMenuRequested, this,
+            [this](const QPoint &pos) { killSelectedProcess(false); });
 
-    setLayout(tableLayout);
     lastSearchText = "";
+}
 
-    procDir = new QDir("/proc/");
-    procDir->setFilter(QDir::Dirs | QDir::NoDotAndDotDot);
+void ProcessWidget::setupContextMenu() {
+    // Context menu is handled via customContextMenuRequested signal
+}
 
-    updateProcessesList();
+void ProcessWidget::killSelectedProcess(bool force) {
+    QList<QTableWidgetSelectionRange> selections = tableWidget->selectedRanges();
+    if (selections.isEmpty()) return;
 
-    QTimer *refreshTimer = new QTimer(this);
-    connect(refreshTimer, &QTimer::timeout, this, &ProcessWidget::updateProcessesList);
-    refreshTimer->start(2000);
+    int row = selections.first().topRow();
+    if (row >= static_cast<int>(processCache.size())) return;
+
+    const ProcessInfo &info = processCache[row];
+
+    QString actionText = force ? "Kill Process (Force)" : "Kill Process";
+    QString message = force
+        ? QString("Are you sure you want to force kill '%1' (PID: %2)?\nThis action cannot be undone.")
+              .arg(info.name)
+              .arg(info.pid)
+        : QString("Are you sure you want to send SIGTERM to '%1' (PID: %2)?")
+              .arg(info.name)
+              .arg(info.pid);
+
+    QMessageBox::StandardButton reply = QMessageBox::question(
+        this, "Confirm Kill", message,
+        QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+
+    if (reply != QMessageBox::Yes) return;
+
+    int signalToSend = force ? 9 : 15;
+    int result = kill(static_cast<pid_t>(info.pid), signalToSend);
+
+    if (result != 0) {
+        QMessageBox::warning(
+            this, "Kill Failed",
+            QString("Failed to send signal to process '%1' (PID: %2).\n\n"
+                    "This may be due to insufficient permissions or the process ending.")
+                .arg(info.name)
+                .arg(info.pid));
+    }
+}
+
+void ProcessWidget::showProcessDetails(const ProcessInfo &info) {
+    ProcessDetailsDialog dialog(this);
+    dialog.setProcessInfo(info);
+    dialog.exec();
 }
 
 void ProcessWidget::updateProcessesList() {
-    tableWidget->setRowCount(0);
+    totalMemoryBytes = readTotalMemory();
 
     procDir->refresh();
-    const QFileInfoList processList = procDir->entryInfoList();
+    const QFileInfoList pidDirs = procDir->entryInfoList();
 
-    for (auto &pidDir : processList) {
-        // Skip non-numeric PIDs (e.g., kernel threads directories that aren't numeric)
+    // Build a map of current PIDs for CPU delta calculation
+    QMap<qint64, qulonglong> currentCpuTicks;
+    QVector<ProcessInfo> newCache;
+
+    for (const auto &pidDir : pidDirs) {
         bool ok = false;
         pidDir.fileName().toInt(&ok);
-        if (!ok)
-            continue;
+        if (!ok) continue;
 
-        // constructing the path to the processes status file
-        const QString pidStatusFilePath = pidDir.absoluteFilePath() + "/status";
+        int pid = pidDir.fileName().toInt();
+        ProcessInfo info = readProcessInfo(pid);
+        if (info.name.isEmpty()) continue;
 
-        // Stack-allocated QFile (RAII - no manual delete needed)
-        QFile statusFileObj(pidStatusFilePath);
-
-        // variable to store the process pid
-        const QString processPid = pidDir.fileName();
-
-        // Skip the file if it fails to open (permission denied, deleted process, etc.)
-        if (!statusFileObj.open(QIODevice::ReadOnly | QIODevice::Text)) {
-            continue;
-        }
-
-        // Parse the status file line by line, searching for Name: and Uid: labels
-        QString processName;
-        QString processUid;
-
-        QTextStream statusFileReadStream(&statusFileObj);
-        QString line;
-        while (statusFileReadStream.readLineInto(&line)) {
-            if (line.startsWith("Name:")) {
-                processName = line.mid(5).trimmed();
-            } else if (line.startsWith("Uid:")) {
-                // Uid format: "Uid:\t<real>\teffective\tsaved\tfs" — use real UID (first value)
-                QStringList uidParts = line.split('\t', Qt::SkipEmptyParts);
-                if (uidParts.size() >= 2) {
-                    processUid = uidParts[1].trimmed();
-                }
-                break;  // Uid is always near the top, no need to read further
-            }
-        }
-
-        statusFileObj.close();
-
-        // Input validation: skip if we couldn't parse Name or Uid
-        // This handles zombie processes, permission-denied, or corrupted status files
-        if (processName.isEmpty() || processUid.isEmpty()) {
-            continue;
-        }
-
-        // adding the data to the table
-        const int row = tableWidget->rowCount();
-        tableWidget->insertRow(row);
-        tableWidget->setItem(row, 0, new QTableWidgetItem(processPid));
-        tableWidget->setItem(row, 1, new QTableWidgetItem(processUid));
-        tableWidget->setItem(row, 2, new QTableWidgetItem(processName));
+        currentCpuTicks[pid] = info.cumulativeCpuTicks;
+        newCache.append(info);
     }
 
-    //reapply the filter after repopulating the table
+    // Calculate CPU% from deltas
+    for (int i = 0; i < newCache.size(); ++i) {
+        qint64 pid = newCache[i].pid;
+        qulonglong currentTicks = currentCpuTicks.value(pid, 0);
+        qulonglong prevTicks = previousCpuTimes.value(pid, 0);
+
+        if (prevTicks > 0) {
+            qulonglong tickDelta = currentTicks - prevTicks;
+            // refreshIntervalMs is in milliseconds, convert to seconds for percentage
+            double cpuPercent = (static_cast<double>(tickDelta) / (refreshIntervalMs * 10.0));
+            // Cap at number of CPU cores
+            int numCores = sysconf(_SC_NPROCESSORS_ONLN);
+            if (cpuPercent > numCores) cpuPercent = static_cast<double>(numCores);
+            newCache[i].cpuPercent = cpuPercent;
+        }
+
+        // Calculate memory percentage
+        if (totalMemoryBytes > 0) {
+            newCache[i].memoryPercent = (static_cast<double>(newCache[i].rssBytes) / totalMemoryBytes) * 100.0;
+        }
+    }
+
+    // Store current CPU ticks for next iteration
+    previousCpuTimes = currentCpuTicks;
+
+    // Update cache
+    processCache = newCache;
+
+    // Rebuild table
+    tableWidget->setRowCount(0);
+
+    for (int i = 0; i < processCache.size(); ++i) {
+        const ProcessInfo &info = processCache[i];
+        const int row = tableWidget->rowCount();
+        tableWidget->insertRow(row);
+
+        QTableWidgetItem *pidItem = new QTableWidgetItem(QString::number(info.pid));
+        pidItem->setData(Qt::DisplayRole, info.pid);
+        pidItem->setTextAlignment(Qt::AlignCenter);
+        tableWidget->setItem(row, COL_PID, pidItem);
+
+        QTableWidgetItem *userItem = new QTableWidgetItem(info.user);
+        userItem->setTextAlignment(Qt::AlignCenter);
+        tableWidget->setItem(row, COL_USER, userItem);
+
+        QTableWidgetItem *stateItem = new QTableWidgetItem(info.state);
+        stateItem->setTextAlignment(Qt::AlignCenter);
+        tableWidget->setItem(row, COL_STATE, stateItem);
+
+        QTableWidgetItem *cpuItem = new QTableWidgetItem(QString("%1%").arg(QString::number(info.cpuPercent, 'f', 1)));
+        cpuItem->setData(Qt::DisplayRole, info.cpuPercent);
+        cpuItem->setTextAlignment(Qt::AlignCenter);
+        tableWidget->setItem(row, COL_CPU_PERCENT, cpuItem);
+
+        QTableWidgetItem *memItem = new QTableWidgetItem(QString("%1%").arg(QString::number(info.memoryPercent, 'f', 1)));
+        memItem->setData(Qt::DisplayRole, info.memoryPercent);
+        memItem->setTextAlignment(Qt::AlignCenter);
+        tableWidget->setItem(row, COL_MEMORY_PERCENT, memItem);
+
+        QTableWidgetItem *threadsItem = new QTableWidgetItem(QString::number(info.threadCount));
+        threadsItem->setData(Qt::DisplayRole, info.threadCount);
+        threadsItem->setTextAlignment(Qt::AlignCenter);
+        tableWidget->setItem(row, COL_THREADS, threadsItem);
+
+        QTableWidgetItem *timeItem = new QTableWidgetItem(info.startTime);
+        timeItem->setTextAlignment(Qt::AlignCenter);
+        tableWidget->setItem(row, COL_START_TIME, timeItem);
+
+        QTableWidgetItem *cmdItem = new QTableWidgetItem(info.commandLine);
+        tableWidget->setItem(row, COL_COMMAND_LINE, cmdItem);
+    }
+
     filterProcesses(lastSearchText);
+
+    quint64 usedMemory = static_cast<quint64>(static_cast<double>(totalMemoryBytes) * 0.6);
+    emit refreshComplete(processCache.size(), totalMemoryBytes, usedMemory);
+}
+
+ProcessInfo ProcessWidget::readProcessInfo(int pid) {
+    ProcessInfo info;
+    info.pid = pid;
+
+    // Read /proc/[pid]/status
+    QFile statusFile(QString("/proc/%1/status").arg(pid));
+    if (!statusFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return info;
+    }
+
+    QTextStream statusStream(&statusFile);
+    QString line;
+    while (statusStream.readLineInto(&line)) {
+        if (line.startsWith("Name:")) {
+            info.name = line.mid(5).trimmed();
+        } else if (line.startsWith("Uid:")) {
+            QStringList uidParts = line.split('\t', Qt::SkipEmptyParts);
+            if (uidParts.size() >= 2) {
+                bool uidOk = false;
+                int uidVal = uidParts[1].trimmed().toInt(&uidOk);
+                if (uidOk) {
+                    struct passwd *pw = getpwuid(uidVal);
+                    if (pw) {
+                        info.user = QString::fromLocal8Bit(pw->pw_name);
+                    } else {
+                        info.user = QString::number(uidVal);
+                    }
+                }
+            }
+        } else if (line.startsWith("State:")) {
+            QString stateStr = line.mid(6).trimmed();
+            if (!stateStr.isEmpty()) {
+                info.state = stateStr;
+            }
+        } else if (line.startsWith("Threads:")) {
+            QString threadsStr = line.mid(8).trimmed();
+            bool threadsOk = false;
+            info.threadCount = threadsStr.toInt(&threadsOk);
+            if (!threadsOk) info.threadCount = 0;
+        } else if (line.startsWith("VmRSS:")) {
+            QString rssStr = line.mid(5).trimmed();
+            bool rssOk = false;
+            qint64 rssKb = rssStr.toLongLong(&rssOk);
+            if (rssOk) {
+                info.rssBytes = rssKb * 1024;
+            }
+        }
+    }
+    statusFile.close();
+
+    if (info.name.isEmpty()) return info;
+
+    // Read /proc/[pid]/stat
+    QFile statFile(QString("/proc/%1/stat").arg(pid));
+    if (statFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        QTextStream statStream(&statFile);
+        QString statLine = statStream.readLine();
+        statFile.close();
+
+        // Parse /proc/[pid]/stat carefully - comm field may contain spaces and parentheses
+        // Format: pid (comm) state fields...
+        int commEnd = statLine.lastIndexOf(')');
+        if (commEnd > 0) {
+            QString remaining = statLine.mid(commEnd + 2);  // skip ") "
+            QStringList statFields = remaining.split(' ', Qt::SkipEmptyParts);
+            // statFields[0] = state (field 3)
+            // statFields[1] = ppid (field 4)
+            // statFields[11] = utime (field 13)
+            // statFields[12] = stime (field 14)
+            // statFields[17] = starttime (field 22)
+            // statFields[18] = num_threads (field 20)
+
+            if (statFields.size() >= 19) {
+                // Parent PID
+                bool ppidOk = false;
+                info.parentPid = statFields[1].toLongLong(&ppidOk);
+
+                // CPU times (in clock ticks)
+                static long ticksPerSecond = sysconf(_SC_CLK_TCK);
+                if (ticksPerSecond <= 0) ticksPerSecond = 100;
+
+                bool utimeOk = false, stimeOk = false;
+                qulonglong utime = statFields[11].toULongLong(&utimeOk);
+                qulonglong stime = statFields[12].toULongLong(&stimeOk);
+                if (utimeOk && stimeOk) {
+                    info.cumulativeCpuTicks = utime + stime;
+                }
+
+                // Start time (convert from clock ticks to human readable)
+                bool startOk = false;
+                qulonglong startTimeTicks = statFields[17].toULongLong(&startOk);
+                if (startOk && ticksPerSecond > 0) {
+                    info.startTime = formatUptime(startTimeTicks, ticksPerSecond);
+                }
+
+                // Num threads (use stat value if status didn't have one)
+                if (info.threadCount <= 0) {
+                    bool threadsOk = false;
+                    int statThreads = statFields[18].toInt(&threadsOk);
+                    if (threadsOk && statThreads > 0) {
+                        info.threadCount = statThreads;
+                    }
+                }
+            }
+        }
+    }
+
+    // Read /proc/[pid]/cmdline
+    QFile cmdlineFile(QString("/proc/%1/cmdline").arg(pid));
+    if (cmdlineFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        QByteArray cmdlineData = cmdlineFile.readAll();
+        cmdlineFile.close();
+
+        if (!cmdlineData.isEmpty()) {
+            cmdlineData.replace('\0', ' ');
+            cmdlineData = cmdlineData.trimmed();
+            info.commandLine = QString::fromLocal8Bit(cmdlineData);
+        }
+    }
+
+    // Fallback: if command line is empty, use the name
+    if (info.commandLine.isEmpty()) {
+        info.commandLine = info.name;
+    }
+
+    return info;
+}
+
+quint64 ProcessWidget::readTotalMemory() {
+    QFile meminfoFile("/proc/meminfo");
+    if (!meminfoFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return 0;
+    }
+
+    quint64 totalMemKb = 0;
+    QTextStream meminfoStream(&meminfoFile);
+    QString line;
+    while (meminfoStream.readLineInto(&line)) {
+        if (line.startsWith("MemTotal:")) {
+            QString valueStr = line.split(':').last().trimmed();
+            bool ok = false;
+            totalMemKb = valueStr.toULongLong(&ok);
+            break;
+        }
+    }
+    meminfoFile.close();
+    return totalMemKb * 1024;
+}
+
+QString ProcessWidget::formatUptime(qint64 ticks, long ticksPerSecond) const {
+    if (ticksPerSecond <= 0) ticksPerSecond = 100;
+
+    qint64 seconds = ticks / ticksPerSecond;
+    qint64 totalMinutes = seconds / 60;
+    qint64 totalHours = totalMinutes / 60;
+    qint64 days = totalHours / 24;
+
+    if (days > 0) {
+        return QString("%1d %2h").arg(days).arg(totalHours % 24);
+    } else if (totalHours > 0) {
+        return QString("%1h %2m").arg(totalHours).arg(totalMinutes % 60);
+    } else {
+        return QString("%1m %2s").arg(totalMinutes).arg(seconds % 60);
+    }
 }
 
 void ProcessWidget::filterProcesses(const QString &filterText) {
     lastSearchText = filterText;
     const QString searchText = filterText.trimmed();
 
-    for (int row = 0; row < tableWidget->rowCount(); row++) {
-        QTableWidgetItem *item = tableWidget->item(row, 2);
-        if (item) {
-            const QString command = item->text();
-            const bool match = searchText.isEmpty() ||
-                               command.contains(searchText, Qt::CaseInsensitive);
-            tableWidget->setRowHidden(row, !match);
+    for (int row = 0; row < tableWidget->rowCount(); ++row) {
+        bool match = searchText.isEmpty();
+        if (!match) {
+            for (int col = 0; col < COLUMN_COUNT; ++col) {
+                QTableWidgetItem *item = tableWidget->item(row, col);
+                if (item && item->text().contains(searchText, Qt::CaseInsensitive)) {
+                    match = true;
+                    break;
+                }
+            }
         }
+        tableWidget->setRowHidden(row, !match);
     }
 }
