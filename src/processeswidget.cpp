@@ -153,7 +153,11 @@ void ProcessWidget::updateProcessesList() {
         newCache.append(info);
     }
 
-    // Calculate CPU% from deltas
+    // Calculate CPU% using KDE ksysguardd approach
+    // CPU% = tickDelta / interval_in_100ths_of_a_second
+    // KDE comment: "record the userTime and sysTime from between calls,
+    //              then use the difference divided by the difference in time
+    //              measure in 100th's of a second"
     for (int i = 0; i < newCache.size(); ++i) {
         qint64 pid = newCache[i].pid;
         qulonglong currentTicks = currentCpuTicks.value(pid, 0);
@@ -161,11 +165,10 @@ void ProcessWidget::updateProcessesList() {
 
         if (prevTicks > 0) {
             qulonglong tickDelta = currentTicks - prevTicks;
-            // refreshIntervalMs is in milliseconds, convert to seconds for percentage
-            double cpuPercent = (static_cast<double>(tickDelta) / (refreshIntervalMs * 10.0));
-            // Cap at number of CPU cores
-            int numCores = sysconf(_SC_NPROCESSORS_ONLN);
-            if (cpuPercent > numCores) cpuPercent = static_cast<double>(numCores);
+            // KDE ksysguardd: "difference divided by the difference in time
+            //              measure in 100th's of a second"
+            // 1 ms = 0.1 hundredths of a second, so interval_ms / 10 = interval in 100ths
+            double cpuPercent = static_cast<double>(tickDelta) / (refreshIntervalMs / 10.0) * 100;
             newCache[i].cpuPercent = cpuPercent;
         }
 

@@ -49,7 +49,7 @@ class ProcessWidget : public QWidget {
     QTimer *refreshTimer;
     QVector<ProcessInfo> processCache;
     QMap<qint64, qulonglong> previousCpuTimes;
-    qint64 totalSystemCpuTime = 0;
+ 
     quint64 totalMemoryBytes = 0;
     int refreshIntervalMs = 2000;
 
@@ -80,7 +80,6 @@ class ProcessWidget : public QWidget {
     ProcessInfo readProcessInfo(int pid);
     quint64 readTotalMemory();
     quint64 readUsedMemory();
-    qint64 readTotalCpuTime();
      QString formatUptime(qint64 ticks, long ticksPerSecond) const;
     QString getProcessStateSymbol(char stateChar) const;
     int findRowByPid(qint64 pid) const;
