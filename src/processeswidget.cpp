@@ -169,9 +169,9 @@ void ProcessWidget::updateProcessesList() {
             newCache[i].cpuPercent = cpuPercent;
         }
 
-        // Calculate memory percentage using unshared RSS
+        // Calculate memory percentage using PSS
         if (totalMemoryBytes > 0) {
-            newCache[i].memoryPercent = (static_cast<double>(newCache[i].unsharedRssBytes) / totalMemoryBytes) * 100.0;
+            newCache[i].memoryPercent = (static_cast<double>(newCache[i].pssKb * 1024) / totalMemoryBytes) * 100.0;
         } else {
             newCache[i].memoryPercent = 0.0;
         }
@@ -205,9 +205,9 @@ void ProcessWidget::updateProcessesList() {
          cpuItem->setTextAlignment(Qt::AlignCenter);
          tableWidget->setItem(row, COL_CPU_PERCENT, cpuItem);
 
-         QTableWidgetItem *memItem = new QTableWidgetItem(formatMemorySize(info.unsharedRssBytes));
-         memItem->setTextAlignment(Qt::AlignCenter);
-         tableWidget->setItem(row, COL_MEMORY, memItem);
+ QTableWidgetItem *memItem = new QTableWidgetItem(formatMemorySize(info.pssKb * 1024));
+        memItem->setTextAlignment(Qt::AlignCenter);
+        tableWidget->setItem(row, COL_MEMORY, memItem);
 
         QTableWidgetItem *cmdItem = new QTableWidgetItem(info.commandLine);
         tableWidget->setItem(row, COL_COMMAND_LINE, cmdItem);
@@ -293,6 +293,22 @@ ProcessInfo ProcessWidget::readProcessInfo(int pid) {
     info.unsharedRssBytes = info.rssBytes - info.sharedPagesKb * 1024;
     if (info.unsharedRssBytes < 0) {
         info.unsharedRssBytes = 0;
+    }
+
+    // Read /proc/[pid]/smaps_rollup for PSS (Proportional Set Size)
+    QFile smapsRollupFile(QString("/proc/%1/smaps_rollup").arg(pid));
+    if (smapsRollupFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        QTextStream smapsStream(&smapsRollupFile);
+        QString line;
+        while (smapsStream.readLineInto(&line)) {
+            if (line.startsWith("Pss:")) {
+                QString valueStr = line.split(':').last().trimmed();
+                bool ok = false;
+                info.pssKb = valueStr.split(' ', Qt::SkipEmptyParts).first().toLongLong(&ok);
+                break;
+            }
+        }
+        smapsRollupFile.close();
     }
 
     if (info.name.isEmpty()) return info;

@@ -49,7 +49,7 @@ void ProcessDetailsDialog::setProcessInfo(const ProcessInfo &info) {
     resourceInfo.append({"CPU%", QString("%1%").arg(QString::number(info.cpuPercent, 'f', 1))});
     resourceInfo.append({"Memory%", QString("%1%").arg(QString::number(info.memoryPercent, 'f', 1))});
     resourceInfo.append({"Memory (RSS)", formatBytes(info.rssBytes)});
-    resourceInfo.append({"Memory (Unshared)", formatBytes(info.unsharedRssBytes)});
+    resourceInfo.append({"Memory (PSS)", formatBytes(info.pssKb * 1024)});
     resourceInfo.append({"Threads", QString::number(info.threadCount)});
     resourceInfo.append({"Start Time", info.startTime});
 
