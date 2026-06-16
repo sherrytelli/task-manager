@@ -230,7 +230,7 @@ void ProcessWidget::updateProcessesList() {
 
     quint64 usedMemory = 0;
     for (const auto &info : processCache) {
-        usedMemory += static_cast<quint64>(info.rssBytes + info.unsharedRssBytes);
+        usedMemory += static_cast<quint64>(info.unsharedRssBytes);
     }
     emit refreshComplete(processCache.size(), totalMemoryBytes, usedMemory);
 }
