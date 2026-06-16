@@ -169,9 +169,9 @@ void ProcessWidget::updateProcessesList() {
             newCache[i].cpuPercent = cpuPercent;
         }
 
-        // Calculate memory percentage using unshared RSS (KDE ksysguardd approach)
+        // Calculate memory percentage using RSS + Unshared
         if (totalMemoryBytes > 0) {
-            newCache[i].memoryPercent = (static_cast<double>(newCache[i].unsharedRssBytes) / totalMemoryBytes) * 100.0;
+            newCache[i].memoryPercent = (static_cast<double>(newCache[i].rssBytes + newCache[i].unsharedRssBytes) / totalMemoryBytes) * 100.0;
         } else {
             newCache[i].memoryPercent = 0.0;
         }
@@ -209,8 +209,8 @@ void ProcessWidget::updateProcessesList() {
         cpuItem->setTextAlignment(Qt::AlignCenter);
         tableWidget->setItem(row, COL_CPU_PERCENT, cpuItem);
 
-        QTableWidgetItem *memItem = new QTableWidgetItem(QString("%1 / %2").arg(formatMemorySize(info.rssBytes), formatMemorySize(info.unsharedRssBytes)));
-        memItem->setData(Qt::DisplayRole, info.unsharedRssBytes);
+        QTableWidgetItem *memItem = new QTableWidgetItem(QString("%1 / %2 (%3)").arg(formatMemorySize(info.rssBytes), formatMemorySize(info.unsharedRssBytes), formatMemorySize(info.rssBytes + info.unsharedRssBytes)));
+        memItem->setData(Qt::DisplayRole, info.rssBytes + info.unsharedRssBytes);
         memItem->setTextAlignment(Qt::AlignCenter);
         tableWidget->setItem(row, COL_MEMORY, memItem);
 
@@ -231,7 +231,7 @@ void ProcessWidget::updateProcessesList() {
 
     quint64 usedMemory = 0;
     for (const auto &info : processCache) {
-        usedMemory += static_cast<quint64>(info.unsharedRssBytes);
+        usedMemory += static_cast<quint64>(info.rssBytes + info.unsharedRssBytes);
     }
     emit refreshComplete(processCache.size(), totalMemoryBytes, usedMemory);
 }
