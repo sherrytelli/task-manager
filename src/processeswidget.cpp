@@ -169,9 +169,9 @@ void ProcessWidget::updateProcessesList() {
             newCache[i].cpuPercent = cpuPercent;
         }
 
-        // Calculate memory percentage using RSS + Unshared
+        // Calculate memory percentage using unshared RSS
         if (totalMemoryBytes > 0) {
-            newCache[i].memoryPercent = (static_cast<double>(newCache[i].rssBytes + newCache[i].unsharedRssBytes) / totalMemoryBytes) * 100.0;
+            newCache[i].memoryPercent = (static_cast<double>(newCache[i].unsharedRssBytes) / totalMemoryBytes) * 100.0;
         } else {
             newCache[i].memoryPercent = 0.0;
         }
@@ -209,7 +209,7 @@ void ProcessWidget::updateProcessesList() {
         cpuItem->setTextAlignment(Qt::AlignCenter);
         tableWidget->setItem(row, COL_CPU_PERCENT, cpuItem);
 
-        QTableWidgetItem *memItem = new QTableWidgetItem(formatMemorySize(info.rssBytes + info.unsharedRssBytes));
+        QTableWidgetItem *memItem = new QTableWidgetItem(formatMemorySize(info.unsharedRssBytes));
         memItem->setTextAlignment(Qt::AlignCenter);
         tableWidget->setItem(row, COL_MEMORY, memItem);
 
@@ -434,10 +434,14 @@ quint64 ProcessWidget::readUsedMemory() {
         return (totalMemKb - availableMemKb) * 1024;
     }
 
+    meminfoFile.close();
+    if (!meminfoFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return 0;
+    }
+
     quint64 freeMemKb = 0;
     quint64 buffersMemKb = 0;
     quint64 cachedMemKb = 0;
-    meminfoFile.open(QIODevice::ReadOnly | QIODevice::Text);
     QTextStream meminfoStream2(&meminfoFile);
     while (meminfoStream2.readLineInto(&line)) {
         if (line.startsWith("MemFree:")) {
