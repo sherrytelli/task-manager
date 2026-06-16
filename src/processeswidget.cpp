@@ -161,6 +161,8 @@ void ProcessWidget::updateProcessesList() {
         // Calculate memory percentage
         if (totalMemoryBytes > 0) {
             newCache[i].memoryPercent = (static_cast<double>(newCache[i].rssBytes) / totalMemoryBytes) * 100.0;
+        } else {
+            newCache[i].memoryPercent = 0.0;
         }
     }
 
@@ -260,9 +262,9 @@ ProcessInfo ProcessWidget::readProcessInfo(int pid) {
             info.threadCount = threadsStr.toInt(&threadsOk);
             if (!threadsOk) info.threadCount = 0;
         } else if (line.startsWith("VmRSS:")) {
-            QString rssStr = line.mid(5).trimmed();
+            QString rssStr = line.split(':').last().trimmed();
             bool rssOk = false;
-            qint64 rssKb = rssStr.toLongLong(&rssOk);
+            qint64 rssKb = rssStr.split(' ', Qt::SkipEmptyParts).first().toLongLong(&rssOk);
             if (rssOk) {
                 info.rssBytes = rssKb * 1024;
             }
@@ -361,7 +363,7 @@ quint64 ProcessWidget::readTotalMemory() {
         if (line.startsWith("MemTotal:")) {
             QString valueStr = line.split(':').last().trimmed();
             bool ok = false;
-            totalMemKb = valueStr.toULongLong(&ok);
+            totalMemKb = valueStr.split(' ', Qt::SkipEmptyParts).first().toULongLong(&ok);
             break;
         }
     }
