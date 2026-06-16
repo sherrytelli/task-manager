@@ -52,26 +52,20 @@ class ProcessWidget : public QWidget {
     quint64 totalMemoryBytes = 0;
     int refreshIntervalMs = 2000;
 
-    enum Column {
-        COL_PID = 0,
-        COL_USER,
-        COL_STATE,
-        COL_CPU_PERCENT,
-        COL_MEMORY,
-        COL_THREADS,
-        COL_START_TIME,
-        COL_COMMAND_LINE,
-        COLUMN_COUNT
-    };
+  enum Column {
+         COL_PID = 0,
+         COL_USER,
+         COL_CPU_PERCENT,
+         COL_MEMORY,
+         COL_COMMAND_LINE,
+         COLUMN_COUNT
+     };
 
-    static constexpr int kColumnWidths[COLUMN_COUNT] = {
-        70,   // PID
-        70,   // USER
-        80,   // STATE
-        70,   // CPU%
-        90,   // MEMORY
-        70,   // THREADS
-        130,  // START TIME
+     static constexpr int kColumnWidths[COLUMN_COUNT] = {
+         70,   // PID
+         70,   // USER
+         70,   // CPU%
+         90,   // MEMORY
         0     // COMMAND LINE (stretch)
     };
 

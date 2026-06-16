@@ -47,7 +47,7 @@ void ProcessWidget::setupTable() {
     tableWidget = new QTableWidget(this);
     tableWidget->setColumnCount(COLUMN_COUNT);
     tableWidget->setHorizontalHeaderLabels(
-        {"PID", "USER", "STATE", "CPU%", "MEMORY", "THREADS", "START TIME", "COMMAND LINE"});
+        {"PID", "USER", "CPU%", "MEMORY", "COMMAND LINE"});
     tableWidget->setEditTriggers(QAbstractItemView::NoEditTriggers);
     tableWidget->setSelectionBehavior(QAbstractItemView::SelectRows);
     tableWidget->setContextMenuPolicy(Qt::CustomContextMenu);
@@ -196,31 +196,18 @@ void ProcessWidget::updateProcessesList() {
         pidItem->setTextAlignment(Qt::AlignCenter);
         tableWidget->setItem(row, COL_PID, pidItem);
 
-        QTableWidgetItem *userItem = new QTableWidgetItem(info.user);
-        userItem->setTextAlignment(Qt::AlignCenter);
-        tableWidget->setItem(row, COL_USER, userItem);
+   QTableWidgetItem *userItem = new QTableWidgetItem(info.user);
+         userItem->setTextAlignment(Qt::AlignCenter);
+         tableWidget->setItem(row, COL_USER, userItem);
 
-        QTableWidgetItem *stateItem = new QTableWidgetItem(info.state);
-        stateItem->setTextAlignment(Qt::AlignCenter);
-        tableWidget->setItem(row, COL_STATE, stateItem);
+         QTableWidgetItem *cpuItem = new QTableWidgetItem(QString("%1%").arg(QString::number(info.cpuPercent, 'f', 1)));
+         cpuItem->setData(Qt::DisplayRole, info.cpuPercent);
+         cpuItem->setTextAlignment(Qt::AlignCenter);
+         tableWidget->setItem(row, COL_CPU_PERCENT, cpuItem);
 
-        QTableWidgetItem *cpuItem = new QTableWidgetItem(QString("%1%").arg(QString::number(info.cpuPercent, 'f', 1)));
-        cpuItem->setData(Qt::DisplayRole, info.cpuPercent);
-        cpuItem->setTextAlignment(Qt::AlignCenter);
-        tableWidget->setItem(row, COL_CPU_PERCENT, cpuItem);
-
-        QTableWidgetItem *memItem = new QTableWidgetItem(formatMemorySize(info.unsharedRssBytes));
-        memItem->setTextAlignment(Qt::AlignCenter);
-        tableWidget->setItem(row, COL_MEMORY, memItem);
-
-        QTableWidgetItem *threadsItem = new QTableWidgetItem(QString::number(info.threadCount));
-        threadsItem->setData(Qt::DisplayRole, info.threadCount);
-        threadsItem->setTextAlignment(Qt::AlignCenter);
-        tableWidget->setItem(row, COL_THREADS, threadsItem);
-
-        QTableWidgetItem *timeItem = new QTableWidgetItem(info.startTime);
-        timeItem->setTextAlignment(Qt::AlignCenter);
-        tableWidget->setItem(row, COL_START_TIME, timeItem);
+         QTableWidgetItem *memItem = new QTableWidgetItem(formatMemorySize(info.unsharedRssBytes));
+         memItem->setTextAlignment(Qt::AlignCenter);
+         tableWidget->setItem(row, COL_MEMORY, memItem);
 
         QTableWidgetItem *cmdItem = new QTableWidgetItem(info.commandLine);
         tableWidget->setItem(row, COL_COMMAND_LINE, cmdItem);
