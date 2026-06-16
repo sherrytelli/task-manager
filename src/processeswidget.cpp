@@ -218,7 +218,10 @@ void ProcessWidget::updateProcessesList() {
 
     filterProcesses(lastSearchText);
 
-    quint64 usedMemory = static_cast<quint64>(static_cast<double>(totalMemoryBytes) * 0.6);
+    quint64 usedMemory = 0;
+    for (const auto &info : processCache) {
+        usedMemory += info.rssBytes;
+    }
     emit refreshComplete(processCache.size(), totalMemoryBytes, usedMemory);
 }
 
