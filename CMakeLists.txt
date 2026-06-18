@@ -14,6 +14,8 @@ qt_add_executable(task-manager
     src/main.cpp
     src/mainwindow.cpp
     src/mainwindow.h
+    src/metricswidget.cpp
+    src/metricswidget.h
     src/processeswidget.cpp
     src/processeswidget.h
     src/processdetailsdialog.cpp

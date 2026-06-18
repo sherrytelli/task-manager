@@ -7,7 +7,7 @@
 #include <QStackedWidget>
 #include <QStatusBar>
 #include <QToolBar>
-#include <QVBoxLayout>
+#include "metricswidget.h"
 #include "processeswidget.h"
 
 class MainWindow : public QMainWindow {
@@ -19,7 +19,7 @@ class MainWindow : public QMainWindow {
 
     private:
     ProcessWidget *processesScreen;
-    QLabel *metricsScreen;
+    MetricsWidget *metricsScreen;
     QStackedWidget *stackedWidget;
     QAction *metricsAction;
     QAction *processesAction;

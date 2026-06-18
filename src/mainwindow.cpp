@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 
+#include <QCoreApplication>
 #include <QDateTime>
 #include <QScreen>
 
@@ -24,11 +25,8 @@ void MainWindow::init() {
     QWidget *centralWidget = new QWidget(this);
     setCentralWidget(centralWidget);
 
-    metricsScreen = new QLabel("Metrics Screen", this);
+    metricsScreen = new MetricsWidget(this);
     processesScreen = new ProcessWidget(this);
-
-    metricsScreen->setAlignment(Qt::AlignCenter);
-    metricsScreen->setStyleSheet("font-size: 24px; background-color: #1a1a2e; color: #e0e0e0;");
 
     stackedWidget = new QStackedWidget(this);
     stackedWidget->addWidget(metricsScreen);
