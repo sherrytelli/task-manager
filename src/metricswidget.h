@@ -29,15 +29,6 @@ struct MemoryMetrics {
     quint64 cachedBytes = 0;
 };
 
-struct DiskMetrics {
-    QString device;
-    QString mountPoint;
-    quint64 totalBytes = 0;
-    quint64 usedBytes = 0;
-    quint64 freeBytes = 0;
-    double usagePercent = 0.0;
-};
-
 struct NetworkMetrics {
     QString interface;
     quint64 bytesReceived = 0;
@@ -72,7 +63,6 @@ class MetricsWidget : public QWidget {
     CpuMetrics currentCpu;
     MemoryMetrics currentMemory;
     SystemMetrics currentSystem;
-    QVector<DiskMetrics> currentDisks;
     QVector<NetworkMetrics> currentNetwork;
     QVector<NetworkMetrics> previousNetwork;
 
@@ -85,13 +75,11 @@ class MetricsWidget : public QWidget {
     QLabel *memSwapLabel;
     QLabel *memBuffersLabel;
     QProgressBar *memProgressBar;
-    QTableWidget *diskTable;
     QTableWidget *networkTable;
     QLabel *uptimeLabel;
     QLabel *processCountLabel;
     QLabel *threadCountLabel;
     QScrollArea *cpuScrollArea;
-    QScrollArea *diskScrollArea;
     QScrollArea *networkScrollArea;
 
     void setupLayout();
@@ -103,7 +91,6 @@ class MetricsWidget : public QWidget {
 
     CpuMetrics readCpuMetrics();
     MemoryMetrics readMemoryMetrics();
-    QVector<DiskMetrics> readDiskMetrics();
     NetworkMetrics readNetworkMetrics();
     SystemMetrics readSystemMetrics();
 };

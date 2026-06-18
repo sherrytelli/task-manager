@@ -4,7 +4,6 @@
 #include <QFile>
 #include <QHeaderView>
 #include <QTextStream>
-#include <sys/statvfs.h>
 #include <unistd.h>
 
 static QString formatMemorySize(quint64 bytes) {
@@ -211,53 +210,6 @@ void MetricsWidget::setupLayout() {
     memSwapRow->addStretch();
     memLayout->addLayout(memSwapRow);
 
-    // --- Disk Card ---
-    QWidget *diskCard = new QWidget(this);
-    diskCard->setStyleSheet(
-        "QWidget {"
-        "  background-color: #16213e;"
-        "  border: 1px solid #0f3460;"
-        "  border-radius: 6px;"
-        "}");
-    QVBoxLayout *diskLayout = new QVBoxLayout(diskCard);
-    diskLayout->setContentsMargins(12, 12, 12, 12);
-    diskLayout->setSpacing(8);
-
-    QLabel *diskTitle = new QLabel("Disk", diskCard);
-    diskTitle->setStyleSheet("font-size: 14px; font-weight: bold; color: #e0e0e0;");
-    diskLayout->addWidget(diskTitle);
-
-    diskScrollArea = new QScrollArea(diskCard);
-    diskScrollArea->setFrameShape(QScrollArea::NoFrame);
-    diskScrollArea->setWidgetResizable(true);
-    diskTable = new QTableWidget(diskScrollArea);
-    diskTable->setColumnCount(6);
-    diskTable->setHorizontalHeaderLabels({"Device", "Mount", "Size", "Used", "Free", "Use%"});
-    diskTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
-    diskTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
-    diskTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Fixed);
-    diskTable->horizontalHeader()->resizeSection(2, 90);
-    diskTable->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Fixed);
-    diskTable->horizontalHeader()->resizeSection(3, 90);
-    diskTable->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Fixed);
-    diskTable->horizontalHeader()->resizeSection(4, 90);
-    diskTable->horizontalHeader()->setSectionResizeMode(5, QHeaderView::Fixed);
-    diskTable->horizontalHeader()->resizeSection(5, 50);
-    diskTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    diskTable->verticalHeader()->setVisible(false);
-    diskTable->setStyleSheet(
-        "QTableWidget {"
-        "  background-color: #1a2744;"
-        "  border: none;"
-        "  font-size: 11px;"
-        "  color: #e0e0e0;"
-        "} "
-        "QTableWidget::item {"
-        "  padding: 2px;"
-        "}");
-    diskScrollArea->setWidget(diskTable);
-    diskLayout->addWidget(diskScrollArea);
-
     // --- Network Card ---
     QWidget *netCard = new QWidget(this);
     netCard->setStyleSheet(
@@ -361,9 +313,8 @@ void MetricsWidget::setupLayout() {
     // --- Assemble layout ---
     QGridLayout *topGrid = new QGridLayout();
     topGrid->setSpacing(12);
-    topGrid->addWidget(cpuCard, 0, 0, 1, 1);
+    topGrid->addWidget(cpuCard, 0, 0, 2, 1);
     topGrid->addWidget(memCard, 0, 1, 1, 1);
-    topGrid->addWidget(diskCard, 1, 0, 1, 1);
     topGrid->addWidget(netCard, 1, 1, 1, 1);
 
     mainLayout->addLayout(topGrid);
@@ -379,7 +330,6 @@ void MetricsWidget::setupLayout() {
 void MetricsWidget::updateCards() {
     currentCpu = readCpuMetrics();
     currentMemory = readMemoryMetrics();
-    currentDisks = readDiskMetrics();
     currentSystem = readSystemMetrics();
 
     // Collect all interfaces from /proc/net/dev
@@ -476,44 +426,6 @@ void MetricsWidget::updateCards() {
             .arg(formatMemorySize(currentMemory.swapUsedBytes))
             .arg(formatMemorySize(currentMemory.swapTotalBytes)));
 
-    // Disk card
-    diskTable->setRowCount(currentDisks.size());
-    for (int i = 0; i < currentDisks.size(); ++i) {
-        const DiskMetrics &disk = currentDisks[i];
-
-        QTableWidgetItem *devItem = new QTableWidgetItem(disk.device);
-        devItem->setFlags(devItem->flags() & ~Qt::ItemIsEditable);
-        diskTable->setItem(i, 0, devItem);
-
-        QTableWidgetItem *mountItem = new QTableWidgetItem(disk.mountPoint);
-        mountItem->setFlags(mountItem->flags() & ~Qt::ItemIsEditable);
-        diskTable->setItem(i, 1, mountItem);
-
-        QTableWidgetItem *sizeItem = new QTableWidgetItem(
-            formatMemorySize(disk.totalBytes));
-        sizeItem->setFlags(sizeItem->flags() & ~Qt::ItemIsEditable);
-        sizeItem->setTextAlignment(Qt::AlignRight);
-        diskTable->setItem(i, 2, sizeItem);
-
-        QTableWidgetItem *usedItem = new QTableWidgetItem(
-            formatMemorySize(disk.usedBytes));
-        usedItem->setFlags(usedItem->flags() & ~Qt::ItemIsEditable);
-        usedItem->setTextAlignment(Qt::AlignRight);
-        diskTable->setItem(i, 3, usedItem);
-
-        QTableWidgetItem *freeItem = new QTableWidgetItem(
-            formatMemorySize(disk.freeBytes));
-        freeItem->setFlags(freeItem->flags() & ~Qt::ItemIsEditable);
-        freeItem->setTextAlignment(Qt::AlignRight);
-        diskTable->setItem(i, 4, freeItem);
-
-        QTableWidgetItem *pctItem = new QTableWidgetItem(
-            QString("%1%").arg(QString::number(disk.usagePercent, 'f', 1)));
-        pctItem->setFlags(pctItem->flags() & ~Qt::ItemIsEditable);
-        pctItem->setTextAlignment(Qt::AlignCenter);
-        diskTable->setItem(i, 5, pctItem);
-    }
-
     // Network card
     networkTable->setRowCount(currentNetwork.size());
     for (int i = 0; i < currentNetwork.size(); ++i) {
@@ -567,9 +479,11 @@ void MetricsWidget::updateCards() {
 CpuMetrics MetricsWidget::readCpuMetrics() {
     CpuMetrics metrics;
 
-    // Read previous CPU ticks from static storage to calculate deltas
-    static QVector<qulonglong> prevTotalTicks;
-    static QVector<qulonglong> prevUserTicks;
+    static QVector<qulonglong> prevSystem;
+    static QVector<qulonglong> prevUser;
+    static QVector<qulonglong> prevIdle;
+    static QVector<qulonglong> prevIowait;
+    static bool firstRead = true;
 
     QFile statFile("/proc/stat");
     if (!statFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
@@ -578,16 +492,18 @@ CpuMetrics MetricsWidget::readCpuMetrics() {
 
     QTextStream statStream(&statFile);
     QString line;
+    int lineIndex = 0;
 
-    QVector<qulonglong> totalTicks;
-    QVector<qulonglong> userTicks;
     QVector<double> perCoreUsageList;
 
     while (statStream.readLineInto(&line)) {
         if (!line.startsWith("cpu")) break;
 
         QStringList fields = line.split(' ', Qt::SkipEmptyParts);
-        if (fields.size() < 8) continue;
+        if (fields.size() < 8) {
+            ++lineIndex;
+            continue;
+        }
 
         qulonglong user = fields[1].toULongLong();
         qulonglong nice = fields[2].toULongLong();
@@ -599,123 +515,64 @@ CpuMetrics MetricsWidget::readCpuMetrics() {
 
         qulonglong totalTick = user + nice + system + idle + iowait + irq + softirq;
 
-        if (fields[0] == "cpu") {
-            // Total CPU
-            totalTicks.append(totalTick);
-            userTicks.append(user);
+        if (lineIndex == 0) {
+            if (!firstRead && prevSystem.size() > 0) {
+                auto totalDiff = qMax(static_cast<long long>(totalTick - prevSystem[0]), 0LL);
+                auto idleDiff = qMax(static_cast<long long>(idle + iowait - prevIdle[0]), 0LL);
 
-            if (!prevTotalTicks.isEmpty() && !prevUserTicks.isEmpty()) {
-                qulonglong totalDelta = totalTick - prevTotalTicks[0];
-                qulonglong idleDelta = idle - prevUserTicks.isEmpty() ? 0 : prevUserTicks[0] +
-                    (prevUserTicks.size() > 1 ? 0 : 0);
-                // Recalculate idle delta properly
-                if (prevUserTicks.size() >= 1) {
-                    // We need the previous idle value, but we only stored user.
-                    // Use total - user - other as approximation.
-                    // Actually, let's just compute from what we have.
-                    // The issue is we don't store previous idle. Let's store all components.
+                if (totalDiff > 0) {
+                    double usage = (1.0 - static_cast<double>(idleDiff) / totalDiff) * 100.0;
+                    metrics.totalUsagePercent = qMax(0.0, qMin(100.0, usage));
                 }
             }
+            while (prevSystem.size() < 1) {
+                prevSystem.append(0);
+                prevUser.append(0);
+                prevIdle.append(0);
+                prevIowait.append(0);
+            }
+            prevSystem[0] = totalTick;
+            prevUser[0] = user + nice;
+            prevIdle[0] = idle + iowait;
+            prevIowait[0] = iowait;
         } else {
-            // Per-core: cpuN
-            int coreIndex = fields[0].mid(3).toInt();
+            int coreIndex = lineIndex - 1;
             metrics.coreCount = qMax(metrics.coreCount, coreIndex + 1);
 
-            totalTicks.append(totalTick);
-            userTicks.append(user);
-
-            if (prevTotalTicks.size() > coreIndex && prevUserTicks.size() > coreIndex) {
-                qulonglong totalDelta = totalTick - prevTotalTicks[coreIndex];
-                // We need previous idle for this core. Since we don't store it,
-                // we'll compute user_delta and approximate.
-                // Actually we can't compute idle delta without storing idle.
-                // Let's just use a simpler approach.
-                perCoreUsageList.append(0.0);
-            } else {
-                perCoreUsageList.append(0.0);
+            while (prevSystem.size() <= static_cast<size_t>(coreIndex)) {
+                prevSystem.append(0);
+                prevUser.append(0);
+                prevIdle.append(0);
+                prevIowait.append(0);
             }
-        }
-    }
-    statFile.close();
 
-    // Simpler approach: store all CPU time components
-    // Reset and re-read with full component storage
-    metrics.perCoreUsage.clear();
-    prevTotalTicks.clear();
-    prevUserTicks.clear();
+            if (!firstRead && prevSystem[coreIndex] > 0) {
+                auto totalDiff = static_cast<long long>(totalTick - prevSystem[coreIndex]);
+                auto idleDiff = qMax(static_cast<long long>(idle + iowait - prevIdle[coreIndex]), 0LL);
 
-    // We need to store all 7 components. Let's use a different approach.
-    // Store the full previous state.
-    static QVector<qulonglong> prevIdle;
-    static bool firstRead = true;
-    firstRead = false;
-
-    QFile statFile2("/proc/stat");
-    if (statFile2.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        QTextStream statStream2(&statFile2);
-        QString line2;
-        int lineIndex = 0;
-
-        while (statStream2.readLineInto(&line2)) {
-            if (!line2.startsWith("cpu")) break;
-
-            QStringList fields2 = line2.split(' ', Qt::SkipEmptyParts);
-            if (fields2.size() < 8) { ++lineIndex; continue; }
-
-            qulonglong user = fields2[1].toULongLong();
-            qulonglong nice = fields2[2].toULongLong();
-            qulonglong system = fields2[3].toULongLong();
-            qulonglong idle = fields2[4].toULongLong();
-            qulonglong iowait = fields2[5].toULongLong();
-            qulonglong irq = fields2[6].toULongLong();
-            qulonglong softirq = fields2[7].toULongLong();
-
-            qulonglong totalTick = user + nice + system + idle + iowait + irq + softirq;
-
-            if (lineIndex == 0) {
-                // Total CPU line
-                if (!prevTotalTicks.isEmpty()) {
-                    qulonglong totalDelta = totalTick - prevTotalTicks[0];
-                    qulonglong idleDelta = idle - prevIdle[0];
-                    if (totalDelta > 0) {
-                        double usage = (1.0 - static_cast<double>(idleDelta) / totalDelta) * 100.0;
-                        metrics.totalUsagePercent = qMax(0.0, qMin(100.0, usage));
-                    }
-                }
-                prevTotalTicks.append(totalTick);
-                prevIdle.append(idle);
-            } else {
-                // Per-core line
-                int coreIndex = lineIndex - 1;
-                while (prevTotalTicks.size() <= coreIndex) {
-                    prevTotalTicks.append(0);
-                    prevIdle.append(0);
-                }
-
-                if (prevTotalTicks[coreIndex] > 0) {
-                    qulonglong totalDelta = totalTick - prevTotalTicks[coreIndex];
-                    qulonglong idleDelta = idle - prevIdle[coreIndex];
-                    if (totalDelta > 0) {
-                        double usage = (1.0 - static_cast<double>(idleDelta) / totalDelta) * 100.0;
-                        perCoreUsageList.append(qMax(0.0, qMin(100.0, usage)));
-                    } else {
-                        perCoreUsageList.append(0.0);
-                    }
+                if (totalDiff > 0) {
+                    double usage = (1.0 - static_cast<double>(idleDiff) / totalDiff) * 100.0;
+                    perCoreUsageList.append(qMax(0.0, qMin(100.0, usage)));
                 } else {
                     perCoreUsageList.append(0.0);
                 }
-                prevTotalTicks[coreIndex] = totalTick;
-                prevIdle[coreIndex] = idle;
+            } else {
+                perCoreUsageList.append(0.0);
             }
 
-            ++lineIndex;
+            prevSystem[coreIndex] = totalTick;
+            prevUser[coreIndex] = user + nice;
+            prevIdle[coreIndex] = idle + iowait;
+            prevIowait[coreIndex] = iowait;
         }
-        statFile2.close();
-    }
 
+        ++lineIndex;
+    }
+    statFile.close();
+
+    firstRead = false;
     metrics.perCoreUsage = perCoreUsageList;
 
-    // Read load averages from /proc/loadavg
     QFile loadavgFile("/proc/loadavg");
     if (loadavgFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
         QTextStream loadavgStream(&loadavgFile);
@@ -806,74 +663,6 @@ MemoryMetrics MetricsWidget::readMemoryMetrics() {
     }
 
     return metrics;
-}
-
-QVector<DiskMetrics> MetricsWidget::readDiskMetrics() {
-    QVector<DiskMetrics> disks;
-
-    QFile mountsFile("/proc/mounts");
-    if (!mountsFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        return disks;
-    }
-
-    QTextStream mountsStream(&mountsFile);
-    QString line;
-    while (mountsStream.readLineInto(&line)) {
-        QStringList fields = line.split(' ', Qt::SkipEmptyParts);
-        if (fields.size() < 3) continue;
-
-        QString device = fields[0];
-        QString mountPoint = fields[1];
-        QString fsType = fields[2];
-
-        // Skip virtual/non-physical filesystems
-        if (fsType == "tmpfs" || fsType == "devtmpfs" || fsType == "sysfs" ||
-            fsType == "proc" || fsType == "devpts" || fsType == "securityfs" ||
-            fsType == "cgroup" || fsType == "cgroup2" || fsType == "pstore" ||
-            fsType == "debugfs" || fsType == "hugetlbfs" || fsType == "mqueue" ||
-            fsType == "binfmt_misc" || fsType == "configfs" || fsType == "fusectl" ||
-            fsType == "tracefs" || fsType == "ramfs") {
-            continue;
-        }
-
-        // Skip pseudo devices
-        if (device == "none" || device.startsWith("tmpfs") || device.startsWith("dev")) {
-            continue;
-        }
-
-        struct statvfs statData{};
-        if (statvfs(mountPoint.toLocal8Bit().constData(), &statData) != 0) {
-            continue;
-        }
-
-        DiskMetrics disk;
-        disk.device = device;
-        disk.mountPoint = mountPoint;
-
-        quint64 blockSize = statData.f_frsize;
-        quint64 totalBlocks = statData.f_blocks;
-        quint64 freeBlocks = statData.f_bfree;
-        quint64 availBlocks = statData.f_bavail;
-
-        disk.totalBytes = totalBlocks * blockSize;
-        disk.freeBytes = availBlocks * blockSize;
-        disk.usedBytes = disk.totalBytes - disk.freeBytes;
-
-        if (disk.totalBytes > 0) {
-            disk.usagePercent =
-                (static_cast<double>(disk.usedBytes) / disk.totalBytes) * 100.0;
-        }
-
-        disks.append(disk);
-    }
-    mountsFile.close();
-
-    std::sort(disks.begin(), disks.end(),
-              [](const DiskMetrics &a, const DiskMetrics &b) {
-                  return a.mountPoint < b.mountPoint;
-              });
-
-    return disks;
 }
 
 SystemMetrics MetricsWidget::readSystemMetrics() {
