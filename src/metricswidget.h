@@ -79,7 +79,6 @@ class MetricsWidget : public QWidget {
     QLabel *uptimeLabel;
     QLabel *processCountLabel;
     QLabel *threadCountLabel;
-    QScrollArea *cpuScrollArea;
     QScrollArea *networkScrollArea;
 
     void setupLayout();

@@ -41,9 +41,41 @@ void MainWindow::init() {
     toolBar->setMovable(false);
     toolBar->setFloatable(false);
     toolBar->setToolButtonStyle(Qt::ToolButtonTextOnly);
+    toolBar->setContextMenuPolicy(Qt::PreventContextMenu);
+    toolBar->setStyleSheet(
+        "QToolBar {"
+        "  background-color: #1a1a2e;"
+        "  border-bottom: 1px solid #0f3460;"
+        "  padding: 0px;"
+        "}"
+        "QToolBar::separator {"
+        "  width: 1px;"
+        "  background: #0f3460;"
+        "  margin: 6px 4px;"
+        "}"
+        "QToolButton {"
+        "  background-color: transparent;"
+        "  color: #a0a0a0;"
+        "  border: none;"
+        "  border-bottom: 2px solid transparent;"
+        "  padding: 10px 20px;"
+        "  font-size: 13px;"
+        "}"
+        "QToolButton:hover {"
+        "  background-color: #16213e;"
+        "  color: #e0e0e0;"
+        "}"
+        "QToolButton:checked {"
+        "  background-color: #16213e;"
+        "  color: #e0e0e0;"
+        "  border-bottom: 2px solid #4a90d9;"
+        "  font-weight: bold;"
+        "}");
 
     metricsAction = new QAction("Metrics", this);
+    metricsAction->setCheckable(true);
     processesAction = new QAction("Processes", this);
+    processesAction->setCheckable(true);
 
     toolBar->addAction(metricsAction);
     toolBar->addSeparator();
@@ -69,14 +101,14 @@ void MainWindow::init() {
 
 void MainWindow::showMetricsScreen() {
     stackedWidget->setCurrentIndex(0);
-    metricsAction->setEnabled(false);
-    processesAction->setEnabled(true);
+    metricsAction->setChecked(true);
+    processesAction->setChecked(false);
 }
 
 void MainWindow::showProcessesScreen() {
     stackedWidget->setCurrentIndex(1);
-    metricsAction->setEnabled(true);
-    processesAction->setEnabled(false);
+    metricsAction->setChecked(false);
+    processesAction->setChecked(true);
 }
 
 void MainWindow::updateStatusBar(int processCount, quint64 totalMem, quint64 usedMem) {

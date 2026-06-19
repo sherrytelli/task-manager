@@ -49,7 +49,7 @@ void ProcessWidget::setupTable() {
     tableWidget = new QTableWidget(this);
     tableWidget->setColumnCount(COLUMN_COUNT);
     tableWidget->setHorizontalHeaderLabels(
-        {"PID", "USER", "CPU%", "MEMORY", "COMMAND LINE"});
+        {"PID", "USER", "CPU%", "MEMORY", "Command"});
     tableWidget->setEditTriggers(QAbstractItemView::NoEditTriggers);
     tableWidget->setSelectionBehavior(QAbstractItemView::SelectRows);
     tableWidget->setContextMenuPolicy(Qt::CustomContextMenu);
@@ -66,12 +66,84 @@ void ProcessWidget::setupTable() {
         }
     }
 
+    tableWidget->setStyleSheet(
+        "QTableWidget {"
+        "  background-color: #1a2744;"
+        "  border: 1px solid #0f3460;"
+        "  border-radius: 4px;"
+        "  color: #e0e0e0;"
+        "  gridline-color: #0f3460;"
+        "  selection-background-color: #0f3460;"
+        "  selection-color: #e0e0e0;"
+        "}"
+        "QTableWidget::item {"
+        "  padding: 4px 8px;"
+        "  border: none;"
+        "}"
+        "QTableWidget::item:selected {"
+        "  background-color: #0f3460;"
+        "  color: #e0e0e0;"
+        "}"
+        "QHeaderView::section {"
+        "  background-color: #16213e;"
+        "  color: #a0a0a0;"
+        "  border: none;"
+        "  border-bottom: 1px solid #0f3460;"
+        "  border-right: 1px solid #0f3460;"
+        "  padding: 6px 8px;"
+        "  font-weight: bold;"
+        "  font-size: 12px;"
+        "}"
+        "QHeaderView::section:first {"
+        "  border-top-left-radius: 4px;"
+        "}"
+        "QHeaderView::section:last {"
+        "  border-top-right-radius: 4px;"
+        "  border-right: none;"
+        "}"
+        "QScrollBar:vertical {"
+        "  background-color: #1a2744;"
+        "  width: 10px;"
+        "  border: none;"
+        "}"
+        "QScrollBar::handle:vertical {"
+        "  background-color: #0f3460;"
+        "  border-radius: 5px;"
+        "  min-height: 20px;"
+        "}"
+        "QScrollBar::handle:vertical:hover {"
+        "  background-color: #1a4a7a;"
+        "}"
+        "QScrollBar::add-line:vertical,"
+        "QScrollBar::sub-line:vertical {"
+        "  height: 0px;"
+        "}"
+        "QScrollBar::add-page:vertical,"
+        "QScrollBar::sub-page:vertical {"
+        "  background: none;"
+        "}");
+
     QVBoxLayout *tableLayout = new QVBoxLayout(this);
-    tableLayout->addWidget(tableWidget);
+    tableLayout->setContentsMargins(0, 0, 0, 0);
+    tableLayout->setSpacing(8);
 
     searchLineEdit = new QLineEdit(this);
     searchLineEdit->setPlaceholderText("Search processes...");
+    searchLineEdit->setStyleSheet(
+        "QLineEdit {"
+        "  background-color: #1a2744;"
+        "  border: 1px solid #0f3460;"
+        "  border-radius: 4px;"
+        "  padding: 6px 12px;"
+        "  color: #e0e0e0;"
+        "  selection-background-color: #4a90d9;"
+        "}"
+        "QLineEdit:focus {"
+        "  border: 1px solid #4a90d9;"
+        "}");
     tableLayout->addWidget(searchLineEdit);
+
+    tableLayout->addWidget(tableWidget);
 
     connect(searchLineEdit, &QLineEdit::textChanged, this, &ProcessWidget::filterProcesses);
     connect(tableWidget, &QTableWidget::itemDoubleClicked, this,

@@ -62,19 +62,19 @@ void MetricsWidget::setupLayout() {
         "}");
     QVBoxLayout *cpuLayout = new QVBoxLayout(cpuCard);
     cpuLayout->setContentsMargins(12, 12, 12, 12);
-    cpuLayout->setSpacing(8);
+    cpuLayout->setSpacing(6);
 
     QLabel *cpuTitle = new QLabel("CPU", cpuCard);
-    cpuTitle->setStyleSheet("font-size: 14px; font-weight: bold; color: #e0e0e0;");
+    cpuTitle->setStyleSheet("font-size: 13px; font-weight: bold; color: #e0e0e0;");
     cpuLayout->addWidget(cpuTitle);
 
     QHBoxLayout *cpuTopRow = new QHBoxLayout();
     cpuTopRow->setSpacing(8);
     QLabel *cpuUsageLabelTitle = new QLabel("Usage:", cpuCard);
-    cpuUsageLabelTitle->setStyleSheet("color: #a0a0a0; font-size: 12px;");
+    cpuUsageLabelTitle->setStyleSheet("color: #a0a0a0; font-size: 11px;");
     cpuUsageLabel = new QLabel("0.0%", cpuCard);
-    cpuUsageLabel->setStyleSheet("color: #e0e0e0; font-size: 18px; font-weight: bold;");
-    cpuUsageLabel->setMinimumWidth(80);
+    cpuUsageLabel->setStyleSheet("color: #e0e0e0; font-size: 16px; font-weight: bold;");
+    cpuUsageLabel->setMinimumWidth(60);
     cpuTopRow->addWidget(cpuUsageLabelTitle);
     cpuTopRow->addWidget(cpuUsageLabel);
     cpuTopRow->addStretch();
@@ -83,38 +83,50 @@ void MetricsWidget::setupLayout() {
     QHBoxLayout *cpuLoadRow = new QHBoxLayout();
     cpuLoadRow->setSpacing(8);
     QLabel *cpuLoadLabel = new QLabel("Load Avg:", cpuCard);
-    cpuLoadLabel->setStyleSheet("color: #a0a0a0; font-size: 12px;");
+    cpuLoadLabel->setStyleSheet("color: #a0a0a0; font-size: 11px;");
     cpuLoadAvgLabel = new QLabel("N/A, N/A, N/A", cpuCard);
-    cpuLoadAvgLabel->setStyleSheet("color: #e0e0e0; font-size: 12px;");
-    cpuLoadAvgLabel->setMinimumWidth(120);
+    cpuLoadAvgLabel->setStyleSheet("color: #e0e0e0; font-size: 11px;");
+    cpuLoadAvgLabel->setMinimumWidth(100);
     cpuLoadRow->addWidget(cpuLoadLabel);
     cpuLoadRow->addWidget(cpuLoadAvgLabel);
     cpuLoadRow->addStretch();
     cpuLayout->addLayout(cpuLoadRow);
 
-    cpuScrollArea = new QScrollArea(cpuCard);
-    cpuScrollArea->setFrameShape(QScrollArea::NoFrame);
-    cpuScrollArea->setMaximumHeight(120);
-    cpuCoreTable = new QTableWidget(cpuScrollArea);
+    cpuCoreTable = new QTableWidget(cpuCard);
     cpuCoreTable->setColumnCount(2);
     cpuCoreTable->setHorizontalHeaderLabels({"Core", "Usage"});
     cpuCoreTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
     cpuCoreTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Fixed);
-    cpuCoreTable->horizontalHeader()->resizeSection(1, 80);
+    cpuCoreTable->horizontalHeader()->resizeSection(1, 60);
     cpuCoreTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     cpuCoreTable->verticalHeader()->setVisible(false);
+    cpuCoreTable->setShowGrid(false);
     cpuCoreTable->setStyleSheet(
         "QTableWidget {"
         "  background-color: #1a2744;"
         "  border: none;"
-        "  font-size: 11px;"
         "  color: #e0e0e0;"
-        "} "
+        "  gridline-color: #0f3460;"
+        "}"
         "QTableWidget::item {"
-        "  padding: 2px;"
+        "  padding: 2px 6px;"
+        "  border: none;"
+        "  font-size: 11px;"
+        "}"
+        "QTableWidget::item:selected {"
+        "  background-color: #0f3460;"
+        "  color: #e0e0e0;"
+        "}"
+        "QHeaderView::section {"
+        "  background-color: #16213e;"
+        "  color: #a0a0a0;"
+        "  border: none;"
+        "  border-bottom: 1px solid #0f3460;"
+        "  padding: 4px 6px;"
+        "  font-weight: bold;"
+        "  font-size: 11px;"
         "}");
-    cpuScrollArea->setWidget(cpuCoreTable);
-    cpuLayout->addWidget(cpuScrollArea);
+    cpuLayout->addWidget(cpuCoreTable);
 
     // --- Memory Card ---
     QWidget *memCard = new QWidget(this);
@@ -231,7 +243,7 @@ void MetricsWidget::setupLayout() {
     networkScrollArea->setWidgetResizable(true);
     networkTable = new QTableWidget(networkScrollArea);
     networkTable->setColumnCount(6);
-    networkTable->setHorizontalHeaderLabels({"Interface", "RX", "TX", "RX Pkts", "TX Pkts", "Err"});
+    networkTable->setHorizontalHeaderLabels({"Interface", "RX Rate", "TX Rate", "RX Packets", "TX Packets", "Errors"});
     networkTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
     networkTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Fixed);
     networkTable->horizontalHeader()->resizeSection(1, 100);
@@ -248,12 +260,35 @@ void MetricsWidget::setupLayout() {
     networkTable->setStyleSheet(
         "QTableWidget {"
         "  background-color: #1a2744;"
-        "  border: none;"
-        "  font-size: 11px;"
+        "  border: 1px solid #0f3460;"
+        "  border-radius: 4px;"
         "  color: #e0e0e0;"
-        "} "
+        "  gridline-color: #0f3460;"
+        "}"
         "QTableWidget::item {"
-        "  padding: 2px;"
+        "  padding: 4px 8px;"
+        "  border: none;"
+        "}"
+        "QTableWidget::item:selected {"
+        "  background-color: #0f3460;"
+        "  color: #e0e0e0;"
+        "}"
+        "QHeaderView::section {"
+        "  background-color: #16213e;"
+        "  color: #a0a0a0;"
+        "  border: none;"
+        "  border-bottom: 1px solid #0f3460;"
+        "  border-right: 1px solid #0f3460;"
+        "  padding: 6px 8px;"
+        "  font-weight: bold;"
+        "  font-size: 12px;"
+        "}"
+        "QHeaderView::section:first {"
+        "  border-top-left-radius: 4px;"
+        "}"
+        "QHeaderView::section:last {"
+        "  border-top-right-radius: 4px;"
+        "  border-right: none;"
         "}");
     networkScrollArea->setWidget(networkTable);
     netLayout->addWidget(networkScrollArea);
@@ -325,6 +360,50 @@ void MetricsWidget::setupLayout() {
     QVBoxLayout *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->addWidget(scrollArea);
+
+    setStyleSheet(
+        "QScrollBar:vertical {"
+        "  background-color: #1a2744;"
+        "  width: 10px;"
+        "  border: none;"
+        "}"
+        "QScrollBar::handle:vertical {"
+        "  background-color: #0f3460;"
+        "  border-radius: 5px;"
+        "  min-height: 20px;"
+        "}"
+        "QScrollBar::handle:vertical:hover {"
+        "  background-color: #1a4a7a;"
+        "}"
+        "QScrollBar::add-line:vertical,"
+        "QScrollBar::sub-line:vertical {"
+        "  height: 0px;"
+        "}"
+        "QScrollBar::add-page:vertical,"
+        "QScrollBar::sub-page:vertical {"
+        "  background: none;"
+        "}"
+        "QScrollBar:horizontal {"
+        "  background-color: #1a2744;"
+        "  height: 10px;"
+        "  border: none;"
+        "}"
+        "QScrollBar::handle:horizontal {"
+        "  background-color: #0f3460;"
+        "  border-radius: 5px;"
+        "  min-width: 20px;"
+        "}"
+        "QScrollBar::handle:horizontal:hover {"
+        "  background-color: #1a4a7a;"
+        "}"
+        "QScrollBar::add-line:horizontal,"
+        "QScrollBar::sub-line:horizontal {"
+        "  width: 0px;"
+        "}"
+        "QScrollBar::add-page:horizontal,"
+        "QScrollBar::sub-page:horizontal {"
+        "  background: none;"
+        "}");
 }
 
 void MetricsWidget::updateCards() {
