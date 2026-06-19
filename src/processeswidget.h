@@ -12,6 +12,8 @@
 #include <QTimer>
 #include <QVBoxLayout>
 
+class HighlightDelegate;
+
 struct ProcessInfo {
     qint64 pid = 0;
     QString name;
@@ -47,6 +49,7 @@ class ProcessWidget : public QWidget {
     QLineEdit *searchLineEdit;
     QString lastSearchText;
     QTimer *refreshTimer;
+    HighlightDelegate *highlightDelegate;
     QVector<ProcessInfo> processCache;
     QMap<qint64, qulonglong> previousCpuTimes;
  

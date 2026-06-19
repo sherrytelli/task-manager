@@ -1,5 +1,6 @@
 #include "processeswidget.h"
 #include "processdetailsdialog.h"
+#include "highlightdelegate.h"
 
 #include <QCoreApplication>
 #include <QDateTime>
@@ -26,7 +27,8 @@ static QString formatMemorySize(qint64 bytes) {
 ProcessWidget::ProcessWidget(QWidget *parent)
     : QWidget(parent),
       procDir(new QDir("/proc/")),
-      refreshTimer(new QTimer(this)) {
+      refreshTimer(new QTimer(this)),
+      highlightDelegate(new HighlightDelegate(this)) {
     setupTable();
     setupContextMenu();
 
@@ -53,6 +55,7 @@ void ProcessWidget::setupTable() {
     tableWidget->setContextMenuPolicy(Qt::CustomContextMenu);
     tableWidget->setSortingEnabled(true);
     tableWidget->verticalHeader()->setVisible(false);
+    tableWidget->setItemDelegate(highlightDelegate);
 
     for (int i = 0; i < COLUMN_COUNT; ++i) {
         if (kColumnWidths[i] > 0) {
@@ -488,6 +491,8 @@ QString ProcessWidget::formatUptime(qint64 ticks, long ticksPerSecond) const {
 
 void ProcessWidget::filterProcesses(const QString &filterText) {
     lastSearchText = filterText;
+    highlightDelegate->setSearchText(filterText);
+    tableWidget->repaint();
     const QString searchText = filterText.trimmed();
 
     for (int row = 0; row < tableWidget->rowCount(); ++row) {
