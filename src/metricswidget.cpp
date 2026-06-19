@@ -81,11 +81,13 @@ void MetricsWidget::setupLayout() {
     cpuLayout->addLayout(cpuTopRow);
 
     cpuCoreTable = new QTableWidget(cpuCard);
-    cpuCoreTable->setColumnCount(2);
-    cpuCoreTable->setHorizontalHeaderLabels({"Core", "Usage"});
-    cpuCoreTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
-    cpuCoreTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Fixed);
-    cpuCoreTable->horizontalHeader()->resizeSection(1, 60);
+    cpuCoreTable->setColumnCount(3);
+    cpuCoreTable->setHorizontalHeaderLabels({"Core", "Usage", "%"});
+    cpuCoreTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Fixed);
+    cpuCoreTable->horizontalHeader()->resizeSection(0, 80);
+    cpuCoreTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
+    cpuCoreTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Fixed);
+    cpuCoreTable->horizontalHeader()->resizeSection(2, 60);
     cpuCoreTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     cpuCoreTable->verticalHeader()->setVisible(false);
     cpuCoreTable->setShowGrid(false);
@@ -458,11 +460,29 @@ void MetricsWidget::updateCards() {
         coreItem->setFlags(coreItem->flags() & ~Qt::ItemIsEditable);
         cpuCoreTable->setItem(i, 0, coreItem);
 
+        QProgressBar *coreProgressBar = new QProgressBar(cpuCoreTable);
+        coreProgressBar->setRange(0, 100);
+        coreProgressBar->setValue(static_cast<int>(currentCpu.perCoreUsage[i]));
+        coreProgressBar->setTextVisible(false);
+        coreProgressBar->setStyleSheet(
+            "QProgressBar {"
+            "  background-color: #1a2744;"
+            "  border: 1px solid #0f3460;"
+            "  border-radius: 3px;"
+            "  height: 16px;"
+            "}"
+            "QProgressBar::chunk {"
+            "  background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0,"
+            "    stop:0 #4ade80, stop:1 #22c55e);"
+            "  border-radius: 2px;"
+            "}");
+        cpuCoreTable->setCellWidget(i, 1, coreProgressBar);
+
         QTableWidgetItem *usageItem = new QTableWidgetItem(
             QString("%1%").arg(QString::number(currentCpu.perCoreUsage[i], 'f', 1)));
         usageItem->setFlags(usageItem->flags() & ~Qt::ItemIsEditable);
         usageItem->setTextAlignment(Qt::AlignCenter);
-        cpuCoreTable->setItem(i, 1, usageItem);
+        cpuCoreTable->setItem(i, 2, usageItem);
     }
 
     // Memory card
