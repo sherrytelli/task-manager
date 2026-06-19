@@ -51,7 +51,7 @@ class ProcessWidget : public QWidget {
     QMap<qint64, qulonglong> previousCpuTimes;
  
     quint64 totalMemoryBytes = 0;
-    int refreshIntervalMs = 2000;
+    int refreshIntervalMs = 1000;
 
   enum Column {
          COL_PID = 0,
