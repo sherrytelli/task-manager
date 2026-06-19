@@ -67,7 +67,6 @@ class MetricsWidget : public QWidget {
     QVector<NetworkMetrics> previousNetwork;
 
     QLabel *cpuUsageLabel;
-    QLabel *cpuLoadAvgLabel;
     QTableWidget *cpuCoreTable;
     QLabel *memTotalLabel;
     QLabel *memUsedLabel;

@@ -80,18 +80,6 @@ void MetricsWidget::setupLayout() {
     cpuTopRow->addStretch();
     cpuLayout->addLayout(cpuTopRow);
 
-    QHBoxLayout *cpuLoadRow = new QHBoxLayout();
-    cpuLoadRow->setSpacing(8);
-    QLabel *cpuLoadLabel = new QLabel("Load Avg:", cpuCard);
-    cpuLoadLabel->setStyleSheet("color: #a0a0a0; font-size: 12px;");
-    cpuLoadAvgLabel = new QLabel("N/A, N/A, N/A", cpuCard);
-    cpuLoadAvgLabel->setStyleSheet("color: #e0e0e0; font-size: 12px;");
-    cpuLoadAvgLabel->setMinimumWidth(100);
-    cpuLoadRow->addWidget(cpuLoadLabel);
-    cpuLoadRow->addWidget(cpuLoadAvgLabel);
-    cpuLoadRow->addStretch();
-    cpuLayout->addLayout(cpuLoadRow);
-
     cpuCoreTable = new QTableWidget(cpuCard);
     cpuCoreTable->setColumnCount(2);
     cpuCoreTable->setHorizontalHeaderLabels({"Core", "Usage"});
@@ -462,12 +450,6 @@ void MetricsWidget::updateCards() {
     // CPU card
     cpuUsageLabel->setText(
         QString("%1%").arg(QString::number(currentCpu.totalUsagePercent, 'f', 1)));
-
-    cpuLoadAvgLabel->setText(
-        QString("%1, %2, %3")
-            .arg(currentCpu.loadAvg1m)
-            .arg(currentCpu.loadAvg5m)
-            .arg(currentCpu.loadAvg15m));
 
     cpuCoreTable->setRowCount(currentCpu.perCoreUsage.size());
     for (int i = 0; i < currentCpu.perCoreUsage.size(); ++i) {
