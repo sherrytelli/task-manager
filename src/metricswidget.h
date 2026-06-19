@@ -58,7 +58,7 @@ class MetricsWidget : public QWidget {
 
     private:
     QTimer *refreshTimer;
-    int refreshIntervalMs = 2000;
+    int refreshIntervalMs = 1000;
 
     CpuMetrics currentCpu;
     MemoryMetrics currentMemory;

@@ -378,6 +378,8 @@ void MetricsWidget::updateCards() {
         netDevFile.close();
     }
 
+    previousNetwork = currentNetwork;
+
     // CPU card
     cpuUsageLabel->setText(
         QString("%1%").arg(QString::number(currentCpu.totalUsagePercent, 'f', 1)));
@@ -479,10 +481,12 @@ void MetricsWidget::updateCards() {
 CpuMetrics MetricsWidget::readCpuMetrics() {
     CpuMetrics metrics;
 
-    static QVector<qulonglong> prevSystem;
-    static QVector<qulonglong> prevUser;
-    static QVector<qulonglong> prevIdle;
-    static QVector<qulonglong> prevIowait;
+    struct Snapshot {
+        long long totals = 0;
+        long long idles = 0;
+    };
+
+    static QVector<Snapshot> prevSnapshots;
     static bool firstRead = true;
 
     QFile statFile("/proc/stat");
@@ -490,85 +494,109 @@ CpuMetrics MetricsWidget::readCpuMetrics() {
         return metrics;
     }
 
-    QTextStream statStream(&statFile);
-    QString line;
-    int lineIndex = 0;
+    QByteArray data = statFile.readAll();
+    statFile.close();
+
+    QStringList lines = QString::fromLatin1(data).split('\n', Qt::SkipEmptyParts);
+
+    // Count CPU lines to pre-size vectors
+    int cpuLineCount = 0;
+    for (const QString &line : lines) {
+        if (line.startsWith("cpu")) {
+            ++cpuLineCount;
+        } else if (!line.isEmpty()) {
+            break;
+        }
+    }
+
+    if (firstRead) {
+        prevSnapshots.resize(cpuLineCount);
+        prevSnapshots.fill({0, 0});
+    }
 
     QVector<double> perCoreUsageList;
+    perCoreUsageList.reserve(qMax(0, cpuLineCount - 1));
+    int lineIndex = 0;
 
-    while (statStream.readLineInto(&line)) {
+    for (const QString &line : lines) {
         if (!line.startsWith("cpu")) break;
 
         QStringList fields = line.split(' ', Qt::SkipEmptyParts);
-        if (fields.size() < 8) {
+        if (fields.size() < 2) {
             ++lineIndex;
             continue;
         }
 
-        qulonglong user = fields[1].toULongLong();
-        qulonglong nice = fields[2].toULongLong();
-        qulonglong system = fields[3].toULongLong();
-        qulonglong idle = fields[4].toULongLong();
-        qulonglong iowait = fields[5].toULongLong();
-        qulonglong irq = fields[6].toULongLong();
-        qulonglong softirq = fields[7].toULongLong();
+        // Skip the label (e.g., "cpu" or "cpu0") and read all numeric fields into a vector
+        QVector<long long> times;
+        long long totalSum = 0;
+        for (int f = 1; f < fields.size(); ++f) {
+            bool ok = false;
+            long long val = fields[f].toLongLong(&ok);
+            if (ok) {
+                times.append(val);
+                totalSum += val;
+            }
+        }
 
-        qulonglong totalTick = user + nice + system + idle + iowait + irq + softirq;
+        if (times.size() < 4) {
+            ++lineIndex;
+            continue;
+        }
+
+        // Subtract fields 8+ (guest, guest_nice, and any future unknown fields)
+        // as they are already included in user/nice and would cause double-counting
+        long long guestSubtraction = 0;
+        if (times.size() > 8) {
+            for (int g = 8; g < times.size(); ++g) {
+                guestSubtraction += times[g];
+            }
+        }
+        long long totals = qMax(0LL, totalSum - guestSubtraction);
+
+        // idle + iowait
+        long long idleTime = times[3];
+        if (times.size() > 4) {
+            idleTime += times[4];
+        }
+        idleTime = qMax(0LL, idleTime);
 
         if (lineIndex == 0) {
-            if (!firstRead && prevSystem.size() > 0) {
-                auto totalDiff = qMax(static_cast<long long>(totalTick - prevSystem[0]), 0LL);
-                auto idleDiff = qMax(static_cast<long long>(idle + iowait - prevIdle[0]), 0LL);
+            long long calcTotals = qMax(1LL, totals - prevSnapshots[0].totals);
+            long long calcIdles = qMax(0LL, idleTime - prevSnapshots[0].idles);
 
-                if (totalDiff > 0) {
-                    double usage = (1.0 - static_cast<double>(idleDiff) / totalDiff) * 100.0;
-                    metrics.totalUsagePercent = qMax(0.0, qMin(100.0, usage));
-                }
-            }
-            while (prevSystem.size() < 1) {
-                prevSystem.append(0);
-                prevUser.append(0);
-                prevIdle.append(0);
-                prevIowait.append(0);
-            }
-            prevSystem[0] = totalTick;
-            prevUser[0] = user + nice;
-            prevIdle[0] = idle + iowait;
-            prevIowait[0] = iowait;
+            prevSnapshots[0].totals = totals;
+            prevSnapshots[0].idles = idleTime;
+
+            double usage = (static_cast<double>(calcTotals - calcIdles) / static_cast<double>(calcTotals)) * 100.0;
+            metrics.totalUsagePercent = qMax(0.0, qMin(100.0, usage));
         } else {
             int coreIndex = lineIndex - 1;
             metrics.coreCount = qMax(metrics.coreCount, coreIndex + 1);
 
-            while (prevSystem.size() <= static_cast<size_t>(coreIndex)) {
-                prevSystem.append(0);
-                prevUser.append(0);
-                prevIdle.append(0);
-                prevIowait.append(0);
+            // Resize vectors if new cores are detected, using lineIndex!
+            while (prevSnapshots.size() <= lineIndex) {
+                prevSnapshots.append({0, 0});
             }
 
-            if (!firstRead && prevSystem[coreIndex] > 0) {
-                auto totalDiff = static_cast<long long>(totalTick - prevSystem[coreIndex]);
-                auto idleDiff = qMax(static_cast<long long>(idle + iowait - prevIdle[coreIndex]), 0LL);
+            if (!firstRead) {
+                // Calculate deltas using lineIndex to avoid colliding with total CPU at index 0
+                long long calcTotals = qMax(1LL, totals - prevSnapshots[lineIndex].totals);
+                long long calcIdles = qMax(0LL, idleTime - prevSnapshots[lineIndex].idles);
 
-                if (totalDiff > 0) {
-                    double usage = (1.0 - static_cast<double>(idleDiff) / totalDiff) * 100.0;
-                    perCoreUsageList.append(qMax(0.0, qMin(100.0, usage)));
-                } else {
-                    perCoreUsageList.append(0.0);
-                }
+                // Save current state using lineIndex
+                prevSnapshots[lineIndex].totals = totals;
+                prevSnapshots[lineIndex].idles = idleTime;
+
+                double usage = (static_cast<double>(calcTotals - calcIdles) / static_cast<double>(calcTotals)) * 100.0;
+                perCoreUsageList.append(qMax(0.0, qMin(100.0, usage)));
             } else {
                 perCoreUsageList.append(0.0);
             }
-
-            prevSystem[coreIndex] = totalTick;
-            prevUser[coreIndex] = user + nice;
-            prevIdle[coreIndex] = idle + iowait;
-            prevIowait[coreIndex] = iowait;
         }
 
         ++lineIndex;
     }
-    statFile.close();
 
     firstRead = false;
     metrics.perCoreUsage = perCoreUsageList;
