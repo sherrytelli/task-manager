@@ -20,6 +20,8 @@ qt_add_executable(task-manager
     src/processeswidget.h
     src/processdetailsdialog.cpp
     src/processdetailsdialog.h
+    src/highlightdelegate.cpp
+    src/highlightdelegate.h
 )
 
 target_link_libraries(task-manager PRIVATE Qt6::Core Qt6::Widgets Qt6::Gui)
