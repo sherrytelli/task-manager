@@ -65,15 +65,15 @@ void MetricsWidget::setupLayout() {
     cpuLayout->setSpacing(6);
 
     QLabel *cpuTitle = new QLabel("CPU", cpuCard);
-    cpuTitle->setStyleSheet("font-size: 13px; font-weight: bold; color: #e0e0e0;");
+    cpuTitle->setStyleSheet("font-size: 14px; font-weight: bold; color: #e0e0e0;");
     cpuLayout->addWidget(cpuTitle);
 
     QHBoxLayout *cpuTopRow = new QHBoxLayout();
     cpuTopRow->setSpacing(8);
     QLabel *cpuUsageLabelTitle = new QLabel("Usage:", cpuCard);
-    cpuUsageLabelTitle->setStyleSheet("color: #a0a0a0; font-size: 11px;");
+    cpuUsageLabelTitle->setStyleSheet("color: #a0a0a0; font-size: 12px;");
     cpuUsageLabel = new QLabel("0.0%", cpuCard);
-    cpuUsageLabel->setStyleSheet("color: #e0e0e0; font-size: 16px; font-weight: bold;");
+    cpuUsageLabel->setStyleSheet("color: #e0e0e0; font-size: 12px; font-weight: bold;");
     cpuUsageLabel->setMinimumWidth(60);
     cpuTopRow->addWidget(cpuUsageLabelTitle);
     cpuTopRow->addWidget(cpuUsageLabel);
@@ -83,9 +83,9 @@ void MetricsWidget::setupLayout() {
     QHBoxLayout *cpuLoadRow = new QHBoxLayout();
     cpuLoadRow->setSpacing(8);
     QLabel *cpuLoadLabel = new QLabel("Load Avg:", cpuCard);
-    cpuLoadLabel->setStyleSheet("color: #a0a0a0; font-size: 11px;");
+    cpuLoadLabel->setStyleSheet("color: #a0a0a0; font-size: 12px;");
     cpuLoadAvgLabel = new QLabel("N/A, N/A, N/A", cpuCard);
-    cpuLoadAvgLabel->setStyleSheet("color: #e0e0e0; font-size: 11px;");
+    cpuLoadAvgLabel->setStyleSheet("color: #e0e0e0; font-size: 12px;");
     cpuLoadAvgLabel->setMinimumWidth(100);
     cpuLoadRow->addWidget(cpuLoadLabel);
     cpuLoadRow->addWidget(cpuLoadAvgLabel);
