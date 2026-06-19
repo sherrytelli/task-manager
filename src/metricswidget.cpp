@@ -72,10 +72,29 @@ void MetricsWidget::setupLayout() {
     cpuTopRow->setSpacing(8);
     QLabel *cpuUsageLabelTitle = new QLabel("Usage:", cpuCard);
     cpuUsageLabelTitle->setStyleSheet("color: #a0a0a0; font-size: 12px;");
-    cpuUsageLabel = new QLabel("0.0%", cpuCard);
+    cpuProgressBar = new QProgressBar(cpuCard);
+    cpuProgressBar->setRange(0, 100);
+    cpuProgressBar->setValue(0);
+    cpuProgressBar->setStyleSheet(
+        "QProgressBar {"
+        "  background-color: #1a2744;"
+        "  border: 1px solid #0f3460;"
+        "  border-radius: 3px;"
+        "  text-align: center;"
+        "  height: 16px;"
+        "  font-size: 11px;"
+        "  color: #e0e0e0;"
+        "} "
+        "QProgressBar::chunk {"
+        "  background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0,"
+        "    stop:0 #4ade80, stop:1 #22c55e);"
+        "  border-radius: 2px;"
+        "}");
+    cpuProgressBar->setFixedWidth(150);
+    cpuUsageLabel = new QLabel("0%", cpuCard);
     cpuUsageLabel->setStyleSheet("color: #e0e0e0; font-size: 12px; font-weight: bold;");
-    cpuUsageLabel->setMinimumWidth(60);
     cpuTopRow->addWidget(cpuUsageLabelTitle);
+    cpuTopRow->addWidget(cpuProgressBar);
     cpuTopRow->addWidget(cpuUsageLabel);
     cpuTopRow->addStretch();
     cpuLayout->addLayout(cpuTopRow);
@@ -450,6 +469,7 @@ void MetricsWidget::updateCards() {
     previousNetwork = currentNetwork;
 
     // CPU card
+    cpuProgressBar->setValue(static_cast<int>(currentCpu.totalUsagePercent));
     cpuUsageLabel->setText(
         QString("%1%").arg(QString::number(currentCpu.totalUsagePercent, 'f', 1)));
 
